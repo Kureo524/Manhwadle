@@ -1,6 +1,6 @@
 // Capture hors écran de l'appli, pour vérifier le rendu sans ouvrir de fenêtre.
 //   npx electron tools/screenshot.cjs sortie.png [mode] [id1,id2,...]
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
@@ -8,10 +8,12 @@ const [out = 'screenshot.png', mode = 'daily', guesses = ''] = process.argv.slic
 const root = path.join(__dirname, '..');
 
 app.whenReady().then(async () => {
+  const data = require(path.join(root, 'data-loader.js')).loadGameData(root);
+  ipcMain.on('manhwadle:data', (event) => { event.returnValue = data; });
   setTimeout(() => { console.error('délai dépassé'); app.exit(1); }, 30000);
   const win = new BrowserWindow({
     width: 1360, height: 860, show: false, backgroundColor: '#0c0c12',
-    webPreferences: { preload: process.env.WEB_URL ? undefined : path.join(root, 'preload.js'), contextIsolation: true, sandbox: false, offscreen: true },
+    webPreferences: { preload: process.env.WEB_URL ? undefined : path.join(root, 'preload.js'), contextIsolation: true, sandbox: true, offscreen: true },
   });
   win.webContents.on('console-message', (e) => { if (e.level === 'error' || e.level === 3) console.error('[page]', e.message); });
   if (process.env.WEB_URL) await win.loadURL(process.env.WEB_URL);
