@@ -90,6 +90,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          ls -la out
+          # Binaires non signés : on publie leurs empreintes pour vérifier les téléchargements.
+          (cd out && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
           gh release upload "$TAG" out/* --clobber
