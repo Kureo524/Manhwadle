@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/",
+    "test": "node --test test/logic.test.js",
     "dist": "electron-builder --linux AppImage",
     "portraits:galerie": "node tools/portraits.mjs galerie",
     "portraits:import": "node tools/portraits.mjs import",
@@ -25,7 +25,24 @@
     "linux": {
       "target": "AppImage",
       "category": "Game"
-    }
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.games"
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
   },
   "devDependencies": {
     "electron": "^38.8.6",
