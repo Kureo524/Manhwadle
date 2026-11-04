@@ -4,6 +4,7 @@ const { loadGameData } = require('./data-loader');
 
 const gameData = loadGameData();
 ipcMain.on('manhwadle:data', (event) => { event.returnValue = gameData; });
+ipcMain.on('manhwadle:quit', () => app.quit());
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -31,6 +32,13 @@ function createWindow() {
 
   // La page ne quitte jamais l'appli ; seuls les liens https s'ouvrent dans le navigateur.
   win.webContents.on('will-navigate', (event) => event.preventDefault());
+  // Pas de barre de titre sous un gestionnaire en tuiles : Ctrl+Q quitte, même depuis la recherche.
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && (input.control || input.meta) && input.key.toLowerCase() === 'q') {
+      event.preventDefault();
+      app.quit();
+    }
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };

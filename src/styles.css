@@ -215,6 +215,13 @@ img { display: block; }
 }
 
 /* ---------- Statistiques ---------- */
+/* Quitter : en bas à droite, sur la ligne des statistiques (appli de bureau seulement). */
+.link.quit {
+  position: absolute; right: 28px; bottom: 12px; z-index: 2;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+}
+.link.quit:hover { color: var(--danger); background: rgba(224, 96, 106, .14); }
+
 .stats {
   display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 22px;
   padding: 8px 32px 14px; font-size: 11px; color: var(--text-3);
