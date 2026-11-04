@@ -268,6 +268,13 @@
       const actions = el('div', 'scenario__actions');
       const share = el('button', 'link link--strong', '[Partager le résultat]');
       share.addEventListener('click', async () => {
+        // Appli de bureau : image de la zone de jeu. Navigateur : texte (une page ne peut pas se capturer).
+        if (typeof window.manhwadle.shareImage === 'function') {
+          closeSuggestions();
+          share.textContent = (await window.manhwadle.shareImage()) ? '[Image copiée.]' : '[Copie impossible.]';
+          setTimeout(() => { share.textContent = '[Partager le résultat]'; }, 1800);
+          return;
+        }
         const text = L.shareText({
           daily: mode === 'daily', day: game.day, won: game.won, streak: dailyStreak(), url: SITE_URL,
           rows: game.guesses.map((id) => L.compare(byId.get(id), game.target).map((r) => r.state)),

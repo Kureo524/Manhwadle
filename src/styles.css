@@ -303,6 +303,12 @@ img { display: block; }
   .save__label { width: 100%; }
 }
 
+/* ---------- Mode capture (partage en image, appli de bureau) ----------
+   Fond nuit opaque, sans barre du haut, statistiques, boutons ni panneaux. */
+html.is-capturing { background: #0c0c12; }
+html.is-capturing .top, html.is-capturing .stats, html.is-capturing .save, html.is-capturing .quit,
+html.is-capturing .scenario__actions, html.is-capturing .suggestions, html.is-capturing .glass-light { display: none !important; }
+
 /* Barres de défilement */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

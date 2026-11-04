@@ -11,6 +11,13 @@ app.whenReady().then(async () => {
   const data = require(path.join(root, 'data-loader.js')).loadGameData(root);
   ipcMain.on('manhwadle:data', (event) => { event.returnValue = data; });
   ipcMain.on('manhwadle:quit', () => console.log('[quit] demande de fermeture reçue'));
+  // Partage en image : la capture est enregistrée dans un fichier (SHARE_OUT), jamais dans le presse-papiers.
+  ipcMain.handle('manhwadle:share-image', async (event) => {
+    const img = await require(path.join(root, 'share-image.js')).captureGameArea(event.sender);
+    if (process.env.SHARE_OUT) fs.writeFileSync(process.env.SHARE_OUT, img.toPNG());
+    console.log('[partage] image', img.getSize());
+    return true;
+  });
   setTimeout(() => { console.error('délai dépassé'); app.exit(1); }, 30000);
   const win = new BrowserWindow({
     width: Number(process.env.WIDTH || 1360), height: Number(process.env.HEIGHT || 860), show: false, backgroundColor: '#0c0c12',

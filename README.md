@@ -52,8 +52,8 @@ devient presque net à 10.
 **Série** : chaque perso du jour trouvé prolonge ta série de jours consécutifs ; un jour sauté ou un
 échec la rompt. La fenêtre de scénario affiche la série en cours et ton record.
 
-**Partager** : en fin de partie, « Partager le résultat » copie une grille de carrés de couleur, sans
-spoiler, à coller où tu veux (Discord, réseaux…).
+**Partager** : en fin de partie, « Partager le résultat » copie dans le presse-papiers une image de la
+partie (fenêtre de scénario et essais) dans l'appli de bureau, ou une grille de carrés de couleur sur le site.
 
 **Sauvegarde** : la série et les statistiques restent dans ton navigateur. « [Sauvegarde] », en bas de
 page, donne un code à copier pour les retrouver sur un autre appareil ou dans l'appli.

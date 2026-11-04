@@ -2,10 +2,12 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('node:path');
 const { loadGameData } = require('./data-loader');
 const { fitToWindow } = require('./window-fit');
+const { copyGameArea } = require('./share-image');
 
 const gameData = loadGameData();
 ipcMain.on('manhwadle:data', (event) => { event.returnValue = gameData; });
 ipcMain.on('manhwadle:quit', () => app.quit());
+ipcMain.handle('manhwadle:share-image', (event) => copyGameArea(event.sender).catch(() => false));
 
 function createWindow() {
   const win = new BrowserWindow({
