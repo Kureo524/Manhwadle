@@ -44,7 +44,8 @@
       "target": [
         "dmg"
       ],
-      "category": "public.app-category.games"
+      "category": "public.app-category.games",
+      "hardenedRuntime": false
     },
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "electronFuses": {

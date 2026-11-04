@@ -37,8 +37,9 @@ html, body { height: 100%; }
 html { background: transparent; }
 /* Navigateur : pas de fond d'écran derrière la page, on pose le fond nuit de la DA. */
 html.is-web { background: #0c0c12; }
-/* Windows / macOS : le flou du système est plus léger que celui d'Hyprland, le voile est plus opaque. */
-html.has-titlebar { --veil: rgba(10, 11, 18, .68); }
+/* Windows / macOS : voile dosé selon le flou du système (Mica est déjà teinté, la vibrancy de macOS non). */
+html.is-windows { --veil: rgba(10, 11, 18, .42); }
+html.is-mac { --veil: rgba(10, 11, 18, .55); }
 body {
   margin: 0; overflow: hidden;
   background: var(--veil); color: var(--text);

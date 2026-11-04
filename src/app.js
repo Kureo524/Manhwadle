@@ -158,10 +158,13 @@
   }
 
   async function login() {
-    if (loggingIn) return;
+    // Déjà en cours : on ramène la fenêtre Discord au premier plan (appli).
+    if (loggingIn) { window.manhwadle.login?.(); return; }
     loggingIn = true;
-    accountMsg = 'Connexion à Discord…';
-    renderAccount(); renderView();
+    accountMsg = typeof window.manhwadle.login === 'function'
+      ? 'Connexion dans la fenêtre Discord… (Échap pour la fermer)' : 'Connexion à Discord…';
+    view = 'account';
+    render();
     const error = await online.login();
     loggingIn = false;
     accountMsg = error ?? '';
@@ -574,7 +577,12 @@
     return panel('[Connexion à la Star Stream]',
       el('p', 'panel__text', 'Connecte-toi avec Discord : ta série du perso du jour est vérifiée par le serveur, '
         + 'retrouvée sur le site comme dans l\'appli, et inscrite au classement. Sans compte, tout reste sur cet appareil.'),
-      actionsOf(button('link link--strong', loggingIn ? '[Connexion…]' : '[Se connecter avec Discord]', login)),
+      actionsOf(
+        button('link link--strong', loggingIn ? '[Connexion…]' : '[Se connecter avec Discord]', login),
+        // Appli : la fenêtre Discord peut se retrouver derrière le jeu ; on peut l'annuler d'ici.
+        ...(loggingIn && typeof window.manhwadle.cancelLogin === 'function'
+          ? [button('link', '[Annuler]', () => window.manhwadle.cancelLogin())] : []),
+      ),
       ...msg, note);
   }
 
