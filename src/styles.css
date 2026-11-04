@@ -35,6 +35,8 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; }
 html { background: transparent; }
+/* Navigateur : pas de fond d'écran derrière la page, on pose le fond nuit de la DA. */
+html.is-web { background: #0c0c12; }
 body {
   margin: 0; overflow: hidden;
   background: var(--veil); color: var(--text);

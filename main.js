@@ -1,5 +1,9 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('node:path');
+const { loadGameData } = require('./data-loader');
+
+const gameData = loadGameData();
+ipcMain.on('manhwadle:data', (event) => { event.returnValue = gameData; });
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -16,18 +20,28 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
+      nodeIntegration: false,
+      webviewTag: false,
+      spellcheck: false,
     },
   });
   win.removeMenu();
   win.once('ready-to-show', () => win.show());
-  // Les liens externes (crédits wiki) s'ouvrent dans le navigateur.
+
+  // La page ne quitte jamais l'appli ; seuls les liens https s'ouvrent dans le navigateur.
+  win.webContents.on('will-navigate', (event) => event.preventDefault());
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (/^https:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   win.loadFile(path.join(__dirname, 'src/index.html'));
 }
 
-app.whenReady().then(createWindow);
+// Aucune permission web (caméra, micro, notifications…) n'est utile au jeu.
+app.whenReady().then(() => {
+  const { session } = require('electron');
+  session.defaultSession.setPermissionRequestHandler((_wc, _perm, callback) => callback(false));
+  createWindow();
+});
 app.on('window-all-closed', () => app.quit());
