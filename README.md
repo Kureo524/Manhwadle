@@ -1,47 +1,144 @@
 # Manhwadle
 
-Jeu de déduction standalone (Electron) : devine un personnage de manhwa à partir de catégories.
-Chaque essai compare ton personnage au personnage mystère sur : manhwa, genre, rôle, espèce,
-affiliation, pouvoir, statut, chapitre de 1re apparition (webtoon) et couleur de cheveux.
+> [Un nouveau scénario est arrivé.]
+>
+> **Condition de réussite :** identifier l'incarnation mystère.
+> **Échec :** ???
 
-Œuvres : Omniscient Reader's Viewpoint, The World After The Fall, The Beginning After The End,
-Reincarnator, Star-Embracing Swordmaster.
+Manhwadle est un jeu de déduction standalone (Electron), dans la veine des « -dle ». Le but : retrouver
+un personnage de manhwa. À chaque essai, ton personnage est comparé au personnage mystère sur
+9 catégories, et les constellations du Star Stream commentent ta progression.
 
-Direction artistique : `Docs/DA/DA-Verre-d-encre.md`.
+![Une partie en cours](Docs/captures/partie.webp)
 
-## Modes
-- **Perso du jour** : le même personnage pour tout le monde, change à minuit (heure locale).
-- **Infini** : parties à la suite, avec choix des manhwa en jeu.
+**Histoires disponibles** — 107 incarnations :
 
-Un indice (portrait flouté) se débloque après 6 essais, plus net à 10.
+| Tag | Manhwa | Persos |
+|---|---|---|
+| `@ORV` | Omniscient Reader's Viewpoint | 22 |
+| `@TWATF` | The World After The Fall | 18 |
+| `@TBATE` | The Beginning After The End | 29 |
+| `@Reinc` | Reincarnator | 10 |
+| `@SESM` | Star-Embracing Swordmaster | 28 |
 
-## Commandes
+---
+
+## Le scénario
+
+Deux modes, présentés comme des scénarios du Star Stream :
+
+- **Scénario principal — Le personnage du jour** : la même incarnation pour tout le monde, tirée parmi
+  les 107. Le temps limite est minuit, heure locale.
+- **Scénario secondaire — Incarnation inconnue** : mode infini. Tu choisis les histoires en jeu ;
+  plus il y en a, plus la difficulté monte (de D à S).
+
+La fenêtre de scénario affiche la catégorie, la difficulté, la condition de réussite, le temps
+limite, la récompense et l'échec. L'indice (une silhouette floutée) se débloque à 6 essais et
+devient presque net à 10.
+
+**Récompense** : 1 000 pièces au premier essai, puis 100 de moins par essai supplémentaire
+(100 au minimum). Les pièces s'additionnent dans tes statistiques.
+
+### Lecture des cases
+
+| Case | Signification |
+|---|---|
+| Verte | même valeur |
+| Jaune | au moins une valeur en commun, ou chapitre à 10 près |
+| Rouge | aucune valeur en commun |
+| Pointillés | donnée encore inconnue : pas de verdict |
+
+Les 9 catégories : manhwa, genre, rôle, espèce, affiliation, pouvoir, statut, chapitre de
+1re apparition dans le webtoon (une flèche indique s'il faut viser plus tôt ou plus tard),
+cheveux.
+
+### Nommer une incarnation
+
+![Recherche par manhwa](Docs/captures/recherche.webp)
+
+- Tape un nom : la recherche ignore les accents et place en tête les noms qui commencent par ta saisie.
+- `@` liste les manhwa ; `@ORV` liste tous les persos d'ORV pas encore proposés ; `@ORV kim`
+  cherche uniquement dans ORV. Un début de tag suffit (`@tb`, `@rein`, `@stellar`).
+- Le grand aperçu à droite de la liste montre le portrait du personnage surligné.
+- Clavier : ↑ ↓ pour naviguer, Entrée pour valider, Tab pour compléter un tag, Échap pour fermer.
+
+### Les constellations
+
+À chaque essai, une constellation réagit selon le nombre de cases justes : de « bâille » à
+« retient son souffle ». Les constellations sont inventées pour le jeu.
+
+---
+
+## Direction artistique
+
+La base est **« Verre d'encre »** (`Docs/DA/DA-Verre-d-encre.md`) : jetons de couleur bleu-nuit,
+accent unique `#8aa8e0`, polices Gothic A1 / Barlow Condensed / IBM Plex Mono, rouge, jaune et
+vert réservés aux verdicts.
+
+Le jeu l'interprète librement, dans l'ambiance d'ORV :
+
+- **Fenêtre transparente** : sous Hyprland (Caelestia), le fond d'écran flouté passe à travers.
+  Un voile léger garde le texte lisible.
+- **Pas de gros panneaux** : onglets texte, recherche en simple ligne, essais posés sur le fond.
+- **Une seule fenêtre système**, celle du scénario : liseré bleu, coins en équerre, fond presque
+  transparent.
+- **Ton « roman »** : messages système entre crochets, en mono (`[Échec du scénario.]`).
+- **Ciel de constellations** animé discrètement, et reflet du curseur sur la fenêtre de scénario.
+
+---
+
+## Lancer le jeu
+
 ```bash
-npm install                 # puis : npm install-scripts approve electron (npm >= 12)
-npm start                   # lance le jeu
-npm test                    # tests de la logique et validation des données
-npm run portraits:galerie   # page des portraits manquants, à enregistrer depuis ton navigateur
-npm run portraits:import    # importe assets/inbox/<id>.<ext> en portraits WebP
-npm run dist                # construit dist/Manhwadle-<version>.AppImage
-npx electron tools/screenshot.cjs capture.png endless kim-dokja,vlad   # capture hors écran
+npm install
+npm install-scripts approve electron   # npm ≥ 12 bloque les scripts d'installation
+npm start
 ```
 
+Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (nécessite `fuse2`).
+
+## Commandes
+
+| Commande | Rôle |
+|---|---|
+| `npm start` | lance le jeu |
+| `npm test` | logique du jeu, validation des données, portraits sans doublon |
+| `npm run dist` | construit l'AppImage |
+| `npm run portraits:galerie` | page des portraits manquants, à enregistrer depuis le navigateur |
+| `npm run portraits:import` | importe `assets/inbox/<id>.<ext>` en portraits WebP |
+
+### Outils de développement
+
+- **Capture hors écran** : `npx electron tools/screenshot.cjs capture.png endless kim-dokja,vlad`
+  (`TYPE="@orv"` pré-remplit la recherche, `SKIP=1` abandonne la partie).
+- **Mode démo du build** : `MANHWADLE_DEMO="kim-dokja,vlad" MANHWADLE_TYPE="@orv" ./Manhwadle.AppImage`
+  rejoue des essais. Il ne touche ni aux parties ni aux statistiques du joueur.
+
 ## Données
-- `data/manhwas.json` : les œuvres et l'API de leur wiki.
-- `data/characters.json` : les personnages. `page` = titre de la page wiki (sert au téléchargement
-  du portrait). Une valeur `"?"` ou un `chapter` à `null` s'affiche comme « inconnu » (aucun verdict).
-  `"verify": true` marque une fiche à relire.
-- `assets/characters/<manhwa>/<id>.webp` : portraits 320×320. Sans fichier, un monogramme s'affiche.
-- `data/credits.json` : source de chaque portrait (rempli par `portraits:import`).
 
-### Portraits
-Le CDN d'images de Fandom refuse les requêtes de scripts (403). Les portraits passent donc par
-le navigateur : `npm run portraits:galerie` génère `assets/inbox/galerie.html` (images + identifiants
-à copier) ; enregistre chaque image sous `assets/inbox/<id>.<ext>`, puis `npm run portraits:import`.
+| Fichier | Contenu |
+|---|---|
+| `data/manhwas.json` | œuvres, tags de recherche, API de leur wiki |
+| `data/characters.json` | personnages ; `page` = page du wiki, `"?"` ou `chapter: null` = inconnu, `verify: true` = fiche à relire |
+| `assets/characters/<manhwa>/<id>.webp` | portraits 320×320 (sinon monogramme) |
+| `data/credits.json` | source de chaque portrait |
 
-Le **statut** suit l'état dans le webtoon quand le wiki le précise.
+Le **statut** (vivant/mort) suit l'état dans le webtoon quand le wiki le précise. Attention aux spoilers.
+
+### Ajouter des portraits
+
+Le CDN d'images de Fandom refuse les scripts (403). Les portraits passent donc par le navigateur :
+
+1. `npm run portraits:galerie` génère `assets/inbox/galerie.html`.
+2. Dans le navigateur, clique sur l'identifiant pour le copier, puis clic droit sur l'image >
+   « Enregistrer l'image sous… » `assets/inbox/<id>.<ext>`.
+3. `npm run portraits:import` recadre chaque image et note sa source.
+
+Restent sans portrait : Aldir, Euren Chiver, Jinhong Lim (images fausses sur les wikis) et
+5 persos de Reincarnator (aucune image sur le wiki).
 
 ## Workflow git
+
 - `main` : versions validées (protégée, PR obligatoire)
 - `dev` : intégration (protégée, PR obligatoire, branche par défaut)
 - `feature/<sujet>` : une branche par feature, PR vers `dev`
