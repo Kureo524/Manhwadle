@@ -11,12 +11,18 @@ app.whenReady().then(async () => {
   setTimeout(() => { console.error('délai dépassé'); app.exit(1); }, 30000);
   const win = new BrowserWindow({
     width: 1360, height: 860, show: false, backgroundColor: '#0c0c12',
-    webPreferences: { preload: path.join(root, 'preload.js'), contextIsolation: true, sandbox: false, offscreen: true },
+    webPreferences: { preload: process.env.WEB_URL ? undefined : path.join(root, 'preload.js'), contextIsolation: true, sandbox: false, offscreen: true },
   });
   win.webContents.on('console-message', (e) => { if (e.level === 'error' || e.level === 3) console.error('[page]', e.message); });
-  await win.loadFile(path.join(root, 'src/index.html'));
+  if (process.env.WEB_URL) await win.loadURL(process.env.WEB_URL);
+  else await win.loadFile(path.join(root, 'src/index.html'));
   await win.webContents.executeJavaScript(`localStorage.clear(); localStorage.setItem('manhwadle.mode', ${JSON.stringify(JSON.stringify(mode))}); location.reload();`);
   await new Promise((r) => win.webContents.once('did-finish-load', r));
+  // Le jeu se charge de façon asynchrone (boot.js) : on attend que la fenêtre de scénario existe.
+  for (let i = 0; i < 100; i++) {
+    if (await win.webContents.executeJavaScript(`!!document.querySelector('.scenario__title')`)) break;
+    await new Promise((r) => setTimeout(r, 100));
+  }
   for (const id of guesses.split(',').filter(Boolean)) {
     await win.webContents.executeJavaScript(`(() => { const i = document.getElementById('search'); const c = window.manhwadle.characters.find(c => c.id === ${JSON.stringify(id)}); i.value = c.name; i.dispatchEvent(new Event('input')); const b = [...document.querySelectorAll('.suggestion')].find(b => b.querySelector('.suggestion__name').textContent === c.name); if (b) b.dispatchEvent(new MouseEvent('mousedown', {bubbles: true})); })()`);
   }

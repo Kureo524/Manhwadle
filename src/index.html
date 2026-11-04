@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self'; script-src 'self'; font-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; connect-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'">
   <title>Manhwadle</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -57,9 +57,6 @@
 
   <div class="suggestions" id="suggestions" role="listbox" hidden></div>
 
-  <script src="logic.js"></script>
-  <script src="sky.js"></script>
-  <script src="glass-light.js"></script>
-  <script src="app.js"></script>
+  <script src="boot.js"></script>
 </body>
 </html>
