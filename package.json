@@ -44,7 +44,7 @@
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
   },
   "devDependencies": {
-    "electron": "^38.8.6",
+    "electron": "^42.11.16",
     "electron-builder": "^26.18.0"
   },
   "allowScripts": {
