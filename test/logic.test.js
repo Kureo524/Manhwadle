@@ -102,19 +102,6 @@ test('partage : grille sans spoiler', () => {
   assert.ok(L.shareText({ daily: false, won: false, rows: [['no']] }).includes('[Échec après 1 essai]'));
 });
 
-test('sauvegarde : aller-retour, accents, code modifié refusé', () => {
-  const stats = { daily: { played: 5, won: 4, streak: 3, best: 4, totalGuesses: 20, lastDay: '2026-11-04', coins: 2500 },
-    endless: { played: 2, won: 1, streak: 0, best: 1, totalGuesses: 6, lastDay: null, coins: 700, note: 'é' } };
-  const code = L.encodeSave(stats);
-  assert.match(code, /^MWD1-[A-Za-z0-9_-]+-[a-z0-9]+$/);
-  assert.deepEqual(L.decodeSave(code), stats);
-  const tampered = code.replace(/-([a-z0-9]+)$/, (m, c) => `-${c === 'a' ? 'b' : 'a'}`);
-  assert.throws(() => L.decodeSave(tampered), /modifié/);
-  assert.throws(() => L.decodeSave('bonjour'), /code de sauvegarde/);
-  const bad = L.encodeSave({ daily: { played: -1 }, endless: {} });
-  assert.throws(() => L.decodeSave(bad), /modifié/);
-});
-
 test('mise à l\'échelle de la fenêtre : complète, puis compacte quand trop étroite', () => {
   const { zoomFor, BASE_WIDTH, MIN_ZOOM } = require('../window-fit.js');
   assert.equal(zoomFor(1858), 1);

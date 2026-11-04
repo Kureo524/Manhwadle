@@ -1,0 +1,15 @@
+# API de Manhwadle : connexion Discord, parties du jour vérifiées, série et classement.
+name = "manhwadle-api"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+SITE_URL = "https://kureo524.github.io/Manhwadle/"
+DISCORD_CLIENT_ID = "1567602819027181668"
+# DISCORD_CLIENT_SECRET : secret, via `npx wrangler secret put DISCORD_CLIENT_SECRET`
+
+[[d1_databases]]
+binding = "DB"
+database_name = "manhwadle"
+database_id = "f3554e5a-2c95-4e57-94f9-7c604b02fa56"
+migrations_dir = "migrations"
