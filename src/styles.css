@@ -20,9 +20,9 @@
   --accent-soft: rgba(138, 168, 224, .16);
   --accent-text: #a9c4f0;
   --lavender: #b6a8d4;
-  --system-line: rgba(138, 168, 224, .42);
-  --system-line-strong: rgba(169, 196, 240, .70);
-  --system-bg: rgba(14, 18, 30, .46);
+  --system-line: rgba(138, 168, 224, .32);
+  --system-line-strong: rgba(169, 196, 240, .55);
+  --system-bg: rgba(14, 18, 30, .12);
   --success: #9ebd85;  --warning: #e7b52f;  --danger: #e0606a;
   --font: 'Gothic A1', sans-serif;
   --font-num: 'Barlow Condensed', sans-serif;
