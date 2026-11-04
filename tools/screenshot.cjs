@@ -13,6 +13,7 @@ app.whenReady().then(async () => {
     width: 1360, height: 860, show: false, backgroundColor: '#0c0c12',
     webPreferences: { preload: path.join(root, 'preload.js'), contextIsolation: true, sandbox: false, offscreen: true },
   });
+  win.webContents.on('console-message', (e) => { if (e.level === 'error' || e.level === 3) console.error('[page]', e.message); });
   await win.loadFile(path.join(root, 'src/index.html'));
   await win.webContents.executeJavaScript(`localStorage.clear(); localStorage.setItem('manhwadle.mode', ${JSON.stringify(JSON.stringify(mode))}); location.reload();`);
   await new Promise((r) => win.webContents.once('did-finish-load', r));
@@ -21,7 +22,10 @@ app.whenReady().then(async () => {
   }
   if (process.env.TYPE) await win.webContents.executeJavaScript(`(() => { const i = document.getElementById('search'); i.focus(); i.value = ${JSON.stringify(process.env.TYPE)}; i.dispatchEvent(new Event('input')); })()`);
   await new Promise((r) => setTimeout(r, 1500));
-  if (process.env.SKIP) await win.webContents.executeJavaScript(`document.getElementById('give-up').click()`);
+  if (process.env.SKIP) {
+    await win.webContents.executeJavaScript(`document.getElementById('give-up').click()`);
+    await new Promise((r) => setTimeout(r, 800));
+  }
   const img = await win.webContents.capturePage();
   fs.writeFileSync(out, img.toPNG());
   console.log('capture :', out);
