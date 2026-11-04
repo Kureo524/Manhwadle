@@ -30,6 +30,7 @@ function start() {
   ipcMain.on('manhwadle:quit', () => app.quit());
   ipcMain.handle('manhwadle:share-image', (event) => copyGameArea(event.sender).catch(() => false));
   ipcMain.handle('manhwadle:login', (event) => discordLogin(BrowserWindow.fromWebContents(event.sender)));
+  ipcMain.on('manhwadle:login-cancel', () => loginWindow?.close());
 
   // Aucune permission web (caméra, micro, notifications…) n'est utile au jeu.
   app.whenReady().then(() => {
@@ -108,6 +109,8 @@ function createWindow() {
 
 // Fenêtre de connexion Discord (une seule à la fois). Elle a sa propre session, sans preload :
 // la page Discord n'a aucun accès à l'appli. Renvoie { session } ou { error }, ou null si elle est fermée.
+// Fenêtre normale (pas modale) : sous macOS, une fenêtre modale devient une « feuille » collée au jeu,
+// sans barre de titre ni bouton pour la fermer. Échap la ferme aussi.
 let loginWindow = null;
 let loginPending = null;
 function discordLogin(parent) {
@@ -116,11 +119,12 @@ function discordLogin(parent) {
     return loginPending;
   }
   loginPending = new Promise((resolve) => {
+    // Centrée sur la fenêtre du jeu.
+    const size = { width: 520, height: 780 };
+    const at = parent && !parent.isDestroyed() ? parent.getBounds() : null;
     const win = new BrowserWindow({
-      parent: parent ?? undefined,
-      modal: !!parent,
-      width: 520,
-      height: 780,
+      ...size,
+      ...(at ? { x: Math.round(at.x + (at.width - size.width) / 2), y: Math.round(at.y + Math.max(0, (at.height - size.height) / 2)) } : {}),
       title: 'Connexion Discord · Manhwadle',
       autoHideMenuBar: true,
       backgroundColor: '#1e1f22',
@@ -137,6 +141,9 @@ function discordLogin(parent) {
       result = params.get('session') ? { session: params.get('session') } : { error: params.get('login') ?? 'erreur' };
       win.close();
     };
+    win.webContents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && input.key === 'Escape') { event.preventDefault(); win.close(); }
+    });
     win.webContents.on('will-redirect', intercept);
     win.webContents.on('will-navigate', intercept);
     win.webContents.setWindowOpenHandler(({ url }) => {

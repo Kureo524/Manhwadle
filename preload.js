@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('manhwadle', {
   quit: () => ipcRenderer.send('manhwadle:quit'),
   shareImage: () => ipcRenderer.invoke('manhwadle:share-image'),
   login: () => ipcRenderer.invoke('manhwadle:login'),
+  cancelLogin: () => ipcRenderer.send('manhwadle:login-cancel'),
   onUpdate: (cb) => {
     updateListeners.add(cb);
     if (lastUpdate) cb(lastUpdate);
