@@ -16,15 +16,25 @@ function zoomFor(width) {
   return Math.max(lo, Math.min(hi, width / COMPACT_WIDTH));
 }
 
+// Applique le zoom pour une largeur de fenêtre donnée (en px réels), sans rien faire si
+// le zoom est déjà le bon (évite une boucle : changer le zoom redimensionne la page).
+function applyZoom(wc, width) {
+  const zoom = zoomFor(width);
+  if (Math.abs(wc.getZoomFactor() - zoom) > 0.005) wc.setZoomFactor(zoom);
+}
+
 function fitToWindow(win) {
-  const apply = () => {
-    if (win.isDestroyed()) return;
-    const [w] = win.getContentSize();
-    win.webContents.setZoomFactor(zoomFor(w));
-  };
-  win.on('resize', apply);
-  win.webContents.on('did-finish-load', apply);
-  apply();
+  const wc = win.webContents;
+  const fromWindow = () => { if (!win.isDestroyed()) applyZoom(wc, win.getContentSize()[0]); };
+  win.on('resize', fromWindow);
+  wc.on('did-finish-load', fromWindow);
+  // Sous Wayland, un gestionnaire en tuiles (Hyprland) redimensionne la fenêtre sans que
+  // l'événement « resize » arrive toujours ici. La page, elle, voit toujours sa largeur
+  // changer : elle envoie sa largeur CSS, convertie en px réels avec le zoom courant.
+  wc.ipc.on('manhwadle:fit', (_event, cssWidth) => {
+    if (!win.isDestroyed() && Number.isFinite(cssWidth) && cssWidth > 0) applyZoom(wc, cssWidth * wc.getZoomFactor());
+  });
+  fromWindow();
 }
 
 module.exports = { fitToWindow, zoomFor, BASE_WIDTH, MIN_ZOOM, COMPACT_WIDTH };
