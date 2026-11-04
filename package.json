@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/",
+    "test": "node --test test/logic.test.js",
     "dist": "electron-builder --linux AppImage",
     "portraits:galerie": "node tools/portraits.mjs galerie",
     "portraits:import": "node tools/portraits.mjs import"
@@ -17,6 +17,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "data-loader.js",
       "src/**",
       "data/**",
       "assets/**"
@@ -24,13 +25,20 @@
     "linux": {
       "target": "AppImage",
       "category": "Game"
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true,
+      "enableCookieEncryption": true
     }
   },
   "devDependencies": {
-    "electron": "^38.8.6",
+    "electron": "^45.2.2",
     "electron-builder": "^26.18.0"
   },
   "allowScripts": {
-    "electron@38.8.6": true
+    "electron@45.2.2": true
   }
 }
