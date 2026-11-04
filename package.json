@@ -1,7 +1,7 @@
 {
   "name": "manhwadle",
   "productName": "Manhwadle",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Jeu de déduction de personnages de manhwa",
   "main": "main.js",
   "private": true,
@@ -44,7 +44,8 @@
       "target": [
         "dmg"
       ],
-      "category": "public.app-category.games"
+      "category": "public.app-category.games",
+      "hardenedRuntime": false
     },
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "electronFuses": {
