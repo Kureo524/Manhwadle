@@ -20,7 +20,8 @@ Un indice (portrait flouté) se débloque après 6 essais, plus net à 10.
 npm install                 # puis : npm install-scripts approve electron (npm >= 12)
 npm start                   # lance le jeu
 npm test                    # tests de la logique et validation des données
-npm run fetch-images        # télécharge les portraits manquants depuis les wikis
+npm run portraits:galerie   # page des portraits manquants, à enregistrer depuis ton navigateur
+npm run portraits:import    # importe assets/inbox/<id>.<ext> en portraits WebP
 npm run dist                # construit dist/Manhwadle-<version>.AppImage
 npx electron tools/screenshot.cjs capture.png endless kim-dokja,vlad   # capture hors écran
 ```
@@ -31,7 +32,12 @@ npx electron tools/screenshot.cjs capture.png endless kim-dokja,vlad   # capture
   du portrait). Une valeur `"?"` ou un `chapter` à `null` s'affiche comme « inconnu » (aucun verdict).
   `"verify": true` marque une fiche à relire.
 - `assets/characters/<manhwa>/<id>.webp` : portraits 320×320. Sans fichier, un monogramme s'affiche.
-- `data/credits.json` : source de chaque portrait (généré par `fetch-images`).
+- `data/credits.json` : source de chaque portrait (rempli par `portraits:import`).
+
+### Portraits
+Le CDN d'images de Fandom refuse les requêtes de scripts (403). Les portraits passent donc par
+le navigateur : `npm run portraits:galerie` génère `assets/inbox/galerie.html` (images + identifiants
+à copier) ; enregistre chaque image sous `assets/inbox/<id>.<ext>`, puis `npm run portraits:import`.
 
 Le **statut** suit l'état dans le webtoon quand le wiki le précise.
 

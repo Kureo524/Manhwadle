@@ -8,8 +8,9 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/",
-    "fetch-images": "node tools/fetch-images.mjs",
-    "dist": "electron-builder --linux AppImage"
+    "dist": "electron-builder --linux AppImage",
+    "portraits:galerie": "node tools/portraits.mjs galerie",
+    "portraits:import": "node tools/portraits.mjs import"
   },
   "build": {
     "appId": "dev.kureo.manhwadle",
