@@ -231,22 +231,6 @@ img { display: block; }
 }
 .stats b { font-family: var(--font-num); font-weight: 600; font-size: 15px; color: var(--text); margin-left: 4px; }
 
-/* ---------- Sauvegarde ---------- */
-.save {
-  width: 100%; max-width: 760px; margin: 0 auto 14px; padding: 12px 16px;
-  display: flex; flex-direction: column; gap: 8px; font-size: 12px;
-  border: 1px solid var(--system-line); border-radius: 12px; background: var(--system-bg);
-}
-.save__row { display: flex; align-items: center; gap: 10px; }
-.save__label { flex: none; width: 150px; color: var(--text-3); }
-.save__input {
-  flex: 1; min-width: 0; padding: 4px 8px; border-radius: 8px; outline: none;
-  border: 1px solid var(--line-strong); background: rgba(10, 10, 15, .5); color: var(--text);
-  font-family: var(--font-mono); font-size: 11px; user-select: text;
-}
-.save__input:focus { border-color: var(--accent); }
-.save__msg { margin: 0; min-height: 16px; }
-.save__note { margin: 0; color: var(--text-3); font-family: var(--font); font-size: 11px; }
 .stats .link { font-size: 11px; }
 
 /* ---------- Compte (en-tête) ---------- */
@@ -270,15 +254,22 @@ img { display: block; }
 .avatar--md { width: 40px; height: 40px; font-size: 16px; }
 
 /* ---------- Classement ---------- */
-/* Vue « Classement » : seuls le classement (et un éventuel message de mise à jour) restent dans la scène. */
-.app.is-ranking .stage > :not(.ranking, .update) { display: none; }
-.ranking { display: flex; flex-direction: column; gap: 14px; max-width: 980px !important; }
-.ranking__panel {
-  padding: 18px 22px; border-radius: 14px;
+/* Vues « Classement » et « Compte » : elles remplacent la partie dans la scène (sauf un message de mise à jour). */
+.app.is-view .stage > :not(.view, .update) { display: none; }
+.view { max-width: 980px !important; }
+.panel {
+  padding: 18px 22px; border-radius: 14px; display: flex; flex-direction: column; gap: 12px; font-size: 13px;
   border: 1px solid var(--system-line); border-top-color: var(--system-line-strong); border-left-color: var(--system-line-strong);
   background: var(--system-bg);
 }
-.ranking__intro { margin: 0 0 14px; color: var(--text-2); font-size: 12px; }
+.panel .scenario__title { margin: 0; }
+.panel__text { margin: 0; color: var(--text-2); font-size: 12px; }
+.panel__who { display: flex; align-items: center; gap: 12px; }
+.panel__name { font-size: 18px; font-weight: 700; line-height: 1.2; }
+.panel__sub { color: var(--text-3); font-size: 11px; }
+.panel__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.panel__msg { margin: 0; font-size: 12px; }
+.panel__note { margin: 0; color: var(--text-3); font-size: 11px; }
 .board { display: flex; flex-direction: column; }
 .board__row {
   display: grid; grid-template-columns: 44px minmax(180px, 1fr) repeat(4, 96px); align-items: center; gap: 8px;
@@ -298,15 +289,6 @@ img { display: block; }
 .board__num { font-family: var(--font-num); font-weight: 600; font-size: 17px; text-align: center; }
 .board__empty { margin: 8px 0; color: var(--text-3); font-size: 12px; }
 
-.account-panel {
-  padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; font-size: 12px;
-  border: 1px solid var(--line); border-radius: 12px; background: var(--system-bg);
-}
-.account-panel__who { display: flex; align-items: center; gap: 12px; }
-.account-panel__text { margin: 0; color: var(--text-2); }
-.account-panel__actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.account-panel__msg { margin: 0; }
-.account-panel__note { margin: 0; color: var(--text-3); font-size: 11px; }
 
 /* ---------- Suggestions ---------- */
 .suggestions {
@@ -363,19 +345,17 @@ img { display: block; }
   .grid { min-width: 860px; grid-template-columns: 150px repeat(9, minmax(72px, 1fr)); }
   /* La colonne du personnage reste visible pendant le défilement horizontal. */
   .who, .grid__head:first-child { position: sticky; left: 0; z-index: 1; background: rgba(12, 12, 18, .92); }
-  .save__row { flex-wrap: wrap; }
-  .save__label { width: 100%; }
   .account__name { display: none; }
   .account__me { padding: 3px; }
   .board__row { grid-template-columns: 30px minmax(120px, 1fr) repeat(2, 56px); }
   .board__row > :nth-child(5), .board__row > :nth-child(6) { display: none; }
-  .ranking__panel { padding: 14px 14px; }
+  .panel { padding: 14px; }
 }
 
 /* ---------- Mode capture (partage en image, appli de bureau) ----------
    Fond nuit opaque, sans barre du haut, statistiques, boutons ni panneaux. */
 html.is-capturing { background: #0c0c12; }
-html.is-capturing .top, html.is-capturing .stats, html.is-capturing .save, html.is-capturing .quit,
+html.is-capturing .top, html.is-capturing .stats, html.is-capturing .quit,
 html.is-capturing .scenario__actions, html.is-capturing .update, html.is-capturing .suggestions, html.is-capturing .glass-light { display: none !important; }
 
 /* Barres de défilement */

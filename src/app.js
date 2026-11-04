@@ -33,7 +33,7 @@
 
   // Compte en ligne (facultatif, jamais en mode démo) : la série du jour est vérifiée et gardée par le serveur.
   const online = window.manhwadle.demo ? null : window.Online;
-  let view = 'game';      // 'game' | 'ranking'
+  let view = 'game';      // 'game' | 'ranking' | 'account'
   let profile = null;     // profil renvoyé par l'API quand le joueur est connecté
   let board = null;       // classement chargé
   let boardError = null;
@@ -154,19 +154,19 @@
     } catch {
       boardError = 'Classement injoignable pour l\'instant.';
     }
-    renderRanking();
+    renderView();
   }
 
   async function login() {
     if (loggingIn) return;
     loggingIn = true;
     accountMsg = 'Connexion à Discord…';
-    renderAccount(); renderRanking();
+    renderAccount(); renderView();
     const error = await online.login();
     loggingIn = false;
     accountMsg = error ?? '';
-    if (error) { renderAccount(); renderRanking(); return; }
-    setView('ranking');
+    if (error) { renderAccount(); renderView(); return; }
+    setView('account');
     await syncAccount();
   }
 
@@ -178,7 +178,7 @@
   }
 
   async function deleteAccount() {
-    if (!confirmDelete) { confirmDelete = true; renderRanking(); return; }
+    if (!confirmDelete) { confirmDelete = true; renderView(); return; }
     confirmDelete = false;
     try {
       await online.deleteAccount();
@@ -443,34 +443,7 @@
       d.append(el('b', '', value), ']');
       return d;
     }));
-    const toggle = el('button', 'link', $('save').hidden ? '[Sauvegarde]' : '[Fermer la sauvegarde]');
-    toggle.addEventListener('click', () => { $('save').hidden = !$('save').hidden; renderSave(); renderStats(); });
-    $('stats').append(toggle);
   }
-
-  // ---------- Sauvegarde (code à copier / restaurer sur un autre appareil) ----------
-  function renderSave() {
-    if ($('save').hidden) return;
-    $('save-code').value = L.encodeSave(stats);
-    $('save-msg').textContent = '';
-  }
-
-  $('save-copy').addEventListener('click', async () => {
-    $('save-msg').textContent = (await copyText($('save-code').value)) ? '[Code copié.]' : '[Copie impossible : sélectionne le code à la main.]';
-  });
-  $('save-restore').addEventListener('click', () => {
-    try {
-      const data = L.decodeSave($('save-input').value);
-      stats = { daily: { ...emptyStats(), ...data.daily }, endless: { ...emptyStats(), ...data.endless } };
-      store.set('stats', stats);
-      $('save-input').value = '';
-      render();
-      renderSave();
-      $('save-msg').textContent = '[Sauvegarde restaurée.]';
-    } catch (e) {
-      $('save-msg').textContent = `[${e.message}]`;
-    }
-  });
 
   function renderFilters() {
     const box = $('filters');
@@ -509,9 +482,9 @@
     if (!online) return;
     if (profile) {
       const me = el('button', 'account__me');
-      me.title = 'Voir le classement';
+      me.title = 'Mon compte';
       me.append(avatar(profile, 'sm'), el('span', 'account__name', profile.name));
-      me.addEventListener('click', () => setView('ranking'));
+      me.addEventListener('click', () => setView('account'));
       box.append(me);
     } else if (online.signedIn) {
       box.append(el('span', 'account__wait', '[Connexion…]'));
@@ -554,58 +527,82 @@
     return wrap;
   }
 
-  function accountPanel() {
-    const box = el('div', 'account-panel');
-    if (profile) {
-      const who = el('div', 'account-panel__who');
-      const txt = el('span');
-      txt.append('Connecté en tant que ', el('b', '', profile.name), '. Ta série du jour est synchronisée entre le site et l\'appli.');
-      who.append(avatar(profile, 'md'), txt);
-      const actions = el('div', 'account-panel__actions');
-      const out = el('button', 'link link--strong', '[Se déconnecter]');
-      out.addEventListener('click', logout);
-      const del = el('button', 'link link--danger', confirmDelete ? '[Confirmer : tout supprimer]' : '[Supprimer mon compte]');
-      del.addEventListener('click', deleteAccount);
-      actions.append(out, del);
-      box.append(who, actions);
-    } else if (online.signedIn) {
-      box.append(el('p', 'account-panel__text', 'Connexion au serveur…'));
-    } else {
-      box.append(el('p', 'account-panel__text', 'Connecte-toi avec Discord pour inscrire ta série au classement et la retrouver sur le site comme dans l\'appli. Sans compte, tout reste sur cet appareil.'));
-      const b = el('button', 'link link--strong', loggingIn ? '[Connexion…]' : '[Se connecter avec Discord]');
-      b.addEventListener('click', login);
-      const actions = el('div', 'account-panel__actions');
-      actions.append(b);
-      box.append(actions);
-    }
-    if (accountMsg) box.append(el('p', 'account-panel__msg system', `[${accountMsg}]`));
-    box.append(el('p', 'account-panel__note',
-      'Données gardées sur le serveur : ton identifiant, ton pseudo et ton avatar Discord, et pour chaque perso du jour '
-      + 'la date, le nombre d\'essais et la réussite. Rien d\'autre n\'est lu sur ton compte Discord. '
-      + 'Supprimer le compte efface tout, définitivement.'));
+  const NOTE = 'Données gardées sur le serveur : ton identifiant, ton pseudo et ton avatar Discord, et pour chaque perso du jour '
+    + 'la date, le nombre d\'essais et la réussite. Rien d\'autre n\'est lu sur ton compte Discord. '
+    + 'Supprimer le compte efface tout, définitivement.';
+
+  function panel(title, ...children) {
+    const box = el('div', 'panel glass');
+    box.append(el('h2', 'scenario__title', title), ...children);
     return box;
   }
 
-  function renderRanking() {
-    const box = $('ranking');
-    box.hidden = view !== 'ranking';
-    if (box.hidden) return;
-    const panel = el('div', 'ranking__panel glass');
-    panel.append(
-      el('h2', 'scenario__title', '[Classement des incarnations — Perso du jour]'),
-      el('p', 'ranking__intro', 'Meilleures séries de scénarios principaux réussis. Chaque partie est vérifiée par le serveur.'),
+  function actionsOf(...buttons) {
+    const box = el('div', 'panel__actions');
+    box.append(...buttons);
+    return box;
+  }
+
+  function button(cls, text, onClick) {
+    const b = el('button', cls, text);
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  // Onglet « Compte » : connexion Discord, ou fiche du joueur connecté.
+  function accountView() {
+    const msg = accountMsg ? [el('p', 'panel__msg system', `[${accountMsg}]`)] : [];
+    const note = el('p', 'panel__note', NOTE);
+    if (profile) {
+      const who = el('div', 'panel__who');
+      const txt = el('div');
+      txt.append(el('div', 'panel__name', profile.name), el('div', 'panel__sub', 'Connecté avec Discord · série synchronisée entre le site et l\'appli'));
+      who.append(avatar(profile, 'md'), txt);
+      const days = (k) => `jour${k > 1 ? 's' : ''}`;
+      return panel('[Fiche de l\'incarnation]', who, rows([
+        ['Série en cours', days(profile.streak), profile.streak],
+        ['Record', days(profile.best), profile.best],
+        ['Scénarios réussis', `sur ${profile.played}`, profile.won],
+        ['Essais moyens', profile.won ? (profile.guesses / profile.won).toFixed(1).replace('.', ',') : '–'],
+        ['Dernier scénario', profile.lastDay ? `n° ${L.dayNumber(profile.lastDay)} (${profile.lastDay.split('-').reverse().join('/')})` : 'aucun'],
+      ]), actionsOf(
+        button('link link--strong', '[Se déconnecter]', logout),
+        button('link link--danger', confirmDelete ? '[Confirmer : tout supprimer]' : '[Supprimer mon compte]', deleteAccount),
+      ), ...msg, note);
+    }
+    if (online.signedIn) return panel('[Connexion à la Star Stream]', el('p', 'panel__text', 'Connexion au serveur…'), ...msg);
+    return panel('[Connexion à la Star Stream]',
+      el('p', 'panel__text', 'Connecte-toi avec Discord : ta série du perso du jour est vérifiée par le serveur, '
+        + 'retrouvée sur le site comme dans l\'appli, et inscrite au classement. Sans compte, tout reste sur cet appareil.'),
+      actionsOf(button('link link--strong', loggingIn ? '[Connexion…]' : '[Se connecter avec Discord]', login)),
+      ...msg, note);
+  }
+
+  function rankingView() {
+    const parts = [
+      el('p', 'panel__text', 'Meilleures séries de scénarios principaux réussis. Chaque partie est vérifiée par le serveur.'),
       renderBoard(),
-    );
-    box.replaceChildren(panel, accountPanel());
+    ];
+    if (!profile && !online.signedIn) {
+      parts.push(actionsOf(button('link', '[Se connecter pour apparaître au classement]', () => setView('account'))));
+    }
+    return panel('[Classement des incarnations — Perso du jour]', ...parts);
+  }
+
+  function renderView() {
+    const box = $('view');
+    box.hidden = view === 'game';
+    if (box.hidden) return;
+    box.replaceChildren(view === 'ranking' ? rankingView() : accountView());
   }
 
   function renderMode() {
     const nav = $('mode');
     const items = [...nav.querySelectorAll('.tabs__item')];
-    nav.querySelector('[data-view="ranking"]').hidden = !online;
-    items.forEach((b) => b.classList.toggle('is-active', view === 'ranking' ? b.dataset.view === 'ranking' : b.dataset.mode === mode));
+    nav.querySelectorAll('[data-view]').forEach((b) => { b.hidden = !online; });
+    items.forEach((b) => b.classList.toggle('is-active', view === 'game' ? b.dataset.mode === mode : b.dataset.view === view));
     const active = items.find((b) => b.classList.contains('is-active'));
-    document.querySelector('.app').classList.toggle('is-ranking', view === 'ranking');
+    document.querySelector('.app').classList.toggle('is-view', view !== 'game');
     const line = nav.querySelector('.tabs__line');
     line.style.left = `${active.offsetLeft + 10}px`;
     line.style.width = `${active.offsetWidth - 20}px`;
@@ -617,7 +614,7 @@
   function render({ animateFirst = false } = {}) {
     renderMode();
     renderAccount();
-    renderRanking();
+    renderView();
     renderFilters();
     renderScenario();
     renderFeed(animateFirst);
@@ -771,8 +768,8 @@
   }
 
   loadGame();
-  // Retour de connexion (site) : on affiche le classement et le compte.
-  if (online && (online.takeJustLoggedIn() || accountMsg)) view = 'ranking';
+  // Retour de connexion (site) : on affiche le compte.
+  if (online && (online.takeJustLoggedIn() || accountMsg)) view = 'account';
   if (view === 'ranking') loadBoard();
   render();
   document.fonts.ready.then(renderMode);

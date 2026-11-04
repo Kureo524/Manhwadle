@@ -55,8 +55,9 @@ devient presque net à 10.
 **Partager** : en fin de partie, « Partager le résultat » copie dans le presse-papiers une image de la
 partie (fenêtre de scénario et essais) dans l'appli de bureau, ou une grille de carrés de couleur sur le site.
 
-**Sauvegarde** : la série et les statistiques restent dans ton navigateur. « [Sauvegarde] », en bas de
-page, donne un code à copier pour les retrouver sur un autre appareil ou dans l'appli.
+**Compte** : l'onglet « Compte » connecte le jeu à Discord. La série du perso du jour est alors vérifiée
+par le serveur, retrouvée sur le site comme dans l'appli, et inscrite à l'onglet « Classement ». Sans compte,
+tout reste sur l'appareil.
 
 **Récompense** : 1 000 pièces au premier essai, puis 100 de moins par essai supplémentaire
 (100 au minimum). Les pièces s'additionnent dans tes statistiques.
@@ -142,9 +143,7 @@ le tag `vX.Y.Z` : la CI construit et publie les binaires et leurs fichiers de mi
 
 Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (nécessite `fuse2`).
 
-**Compte en ligne (facultatif)** : l'onglet « Classement » propose de se connecter avec Discord. La série du
-perso du jour est alors vérifiée par le serveur, synchronisée entre le site et l'appli, et inscrite au classement.
-Sans compte, tout reste sur l'appareil. L'API vit dans `server/` (`npm test` pour sa logique,
+**Serveur** : l'API de connexion et de classement vit dans `server/` (`npm test` pour sa logique,
 `npx wrangler deploy` pour la publier).
 
 ## Commandes
