@@ -40,6 +40,8 @@ app.whenReady().then(async () => {
   }
   if (process.env.TYPE) await win.webContents.executeJavaScript(`(() => { const i = document.getElementById('search'); i.focus(); i.value = ${JSON.stringify(process.env.TYPE)}; i.dispatchEvent(new Event('input')); })()`);
   await new Promise((r) => setTimeout(r, 1500));
+  // UPDATE_STATE : simule un message de mise à jour (downloading | ready).
+  if (process.env.UPDATE_STATE) { win.webContents.send('manhwadle:update', { state: process.env.UPDATE_STATE, version: '0.1.2' }); await new Promise((r) => setTimeout(r, 300)); }
   // EVAL : code exécuté dans la page juste avant la capture (ex. ouvrir un panneau).
   if (process.env.EVAL) { await win.webContents.executeJavaScript(process.env.EVAL); await new Promise((r) => setTimeout(r, 600)); }
   if (process.env.SKIP) {

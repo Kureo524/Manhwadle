@@ -65,11 +65,14 @@ jobs:
           name: manhwadle-${{ matrix.name }}
           if-no-files-found: error
           retention-days: 7
+          # latest*.yml + *.blockmap : nécessaires aux mises à jour automatiques (différentielles).
           path: |
             dist/*.AppImage
             dist/*.exe
             dist/*.zip
             dist/*.dmg
+            dist/latest*.yml
+            dist/*.blockmap
 
   publish:
     name: Publier dans la release

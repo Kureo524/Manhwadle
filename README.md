@@ -131,6 +131,14 @@ npm install-scripts approve electron   # npm ≥ 12 bloque les scripts d'install
 npm start
 ```
 
+**Mises à jour** : l'appli de bureau vérifie au lancement s'il existe une release plus récente sur GitHub,
+télécharge en arrière-plan seulement ce qui a changé, et s'installe à la fermeture (ou tout de suite avec
+« [Redémarrer maintenant] »). Windows (installateur) et Linux (AppImage) ; pas sur macOS, qui refuse la
+mise à jour automatique d'une appli non signée. Une seule instance de l'appli peut être ouverte à la fois.
+
+Pour publier une mise à jour : augmenter `version` dans `package.json`, fusionner dans `main`, puis poser
+le tag `vX.Y.Z` : la CI construit et publie les binaires et leurs fichiers de mise à jour.
+
 Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (nécessite `fuse2`).
 
 ## Commandes

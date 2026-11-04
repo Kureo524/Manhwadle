@@ -80,6 +80,9 @@ img { display: block; }
   transition: left .32s var(--ease-out-back), width .32s var(--ease-out-back);
 }
 
+/* ---------- Mise à jour (appli de bureau) ---------- */
+.update { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; }
+
 /* ---------- Fenêtre de scénario (fenêtre système ORV) ---------- */
 .glass { position: relative; overflow: hidden; }
 .glass > * { position: relative; z-index: 1; }
@@ -309,7 +312,7 @@ img { display: block; }
    Fond nuit opaque, sans barre du haut, statistiques, boutons ni panneaux. */
 html.is-capturing { background: #0c0c12; }
 html.is-capturing .top, html.is-capturing .stats, html.is-capturing .save, html.is-capturing .quit,
-html.is-capturing .scenario__actions, html.is-capturing .suggestions, html.is-capturing .glass-light { display: none !important; }
+html.is-capturing .scenario__actions, html.is-capturing .update, html.is-capturing .suggestions, html.is-capturing .glass-light { display: none !important; }
 
 /* Barres de défilement */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
