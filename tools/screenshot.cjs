@@ -13,10 +13,12 @@ app.whenReady().then(async () => {
   ipcMain.on('manhwadle:quit', () => console.log('[quit] demande de fermeture reçue'));
   setTimeout(() => { console.error('délai dépassé'); app.exit(1); }, 30000);
   const win = new BrowserWindow({
-    width: 1360, height: 860, show: false, backgroundColor: '#0c0c12',
+    width: Number(process.env.WIDTH || 1360), height: Number(process.env.HEIGHT || 860), show: false, backgroundColor: '#0c0c12',
     webPreferences: { preload: process.env.WEB_URL ? undefined : path.join(root, 'preload.js'), contextIsolation: true, sandbox: true, offscreen: true },
   });
   win.webContents.on('console-message', (e) => { if (e.level === 'error' || e.level === 3) console.error('[page]', e.message); });
+  // Même mise à l'échelle que l'appli (sauf en mode web, où c'est le CSS adaptatif qui agit).
+  if (!process.env.WEB_URL) require(path.join(root, 'window-fit.js')).fitToWindow(win);
   if (process.env.WEB_URL) await win.loadURL(process.env.WEB_URL);
   else await win.loadFile(path.join(root, 'src/index.html'));
   await win.webContents.executeJavaScript(`localStorage.clear(); localStorage.setItem('manhwadle.mode', ${JSON.stringify(JSON.stringify(mode))}); ${process.env.STATS ? `localStorage.setItem('manhwadle.stats', ${JSON.stringify(process.env.STATS)});` : ''} location.reload();`);

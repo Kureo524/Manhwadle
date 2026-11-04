@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('node:path');
 const { loadGameData } = require('./data-loader');
+const { fitToWindow } = require('./window-fit');
 
 const gameData = loadGameData();
 ipcMain.on('manhwadle:data', (event) => { event.returnValue = gameData; });
@@ -10,8 +11,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1360,
     height: 860,
-    minWidth: 1040,
-    minHeight: 640,
+    minWidth: 720,
+    minHeight: 480,
     // Fenêtre transparente : le compositeur (Hyprland) floute le fond d'écran derrière.
     transparent: true,
     backgroundColor: '#00000000',
@@ -43,6 +44,7 @@ function createWindow() {
     if (/^https:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
+  fitToWindow(win);
   win.loadFile(path.join(__dirname, 'src/index.html'));
 }
 
