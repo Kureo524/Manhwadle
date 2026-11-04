@@ -1,0 +1,497 @@
+{
+  "agrona-vritra": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/f/fc/Agrona-official-art.png",
+    "page": "Agrona Vritra",
+    "manhwa": "tbate"
+  },
+  "alice-leywin": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/7/74/Current_Alice_2.png",
+    "page": "Alice Leywin",
+    "manhwa": "tbate"
+  },
+  "alicia-heinal": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/3/36/2026-02-05_22-44-19.png",
+    "page": "Alicia Heinal",
+    "manhwa": "sesm"
+  },
+  "amil-groshek": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/2/2c/Amil_alive.jpg",
+    "page": "Amil Groshek",
+    "manhwa": "twatf"
+  },
+  "anna-croft": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/6/6d/Anna_croft_270.png",
+    "page": "Anna Croft",
+    "manhwa": "orv"
+  },
+  "arthur-leywin": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/3/35/Arthur_Vol_10.png",
+    "page": "Arthur Leywin",
+    "manhwa": "tbate"
+  },
+  "bairon-wykes": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/a/a1/Bairon_Wykes.png",
+    "page": "Bairon Wykes",
+    "manhwa": "tbate"
+  },
+  "bihyung": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/d/d8/Bihyung_%28Webtoon_Chapter_2%29.png",
+    "page": "Bihyung",
+    "manhwa": "orv"
+  },
+  "black-bear": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/3/32/2026-02-06_22-41-03.png",
+    "page": "Black Bear",
+    "manhwa": "sesm"
+  },
+  "cadell": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/a/ae/CadellNovel.png",
+    "page": "Cadell",
+    "manhwa": "tbate"
+  },
+  "cayman": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/8/8d/Cayman.png",
+    "page": "Cayman",
+    "manhwa": "twatf"
+  },
+  "cecilia": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/e/e7/Screenshot_2024-05-16_203823.png",
+    "page": "Cecilia",
+    "manhwa": "tbate"
+  },
+  "cheon-inho": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/9/9b/Cheon_Inho_%28novel%29.jpeg",
+    "page": "Cheon Inho",
+    "manhwa": "orv"
+  },
+  "chunghuh": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/b/b0/Chunghuh_in_his_Unique_World.png",
+    "page": "Chunghuh",
+    "manhwa": "twatf"
+  },
+  "claire-bladeheart": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/0/07/Claire_Bladeheart_S5.png",
+    "page": "Claire Bladeheart",
+    "manhwa": "tbate"
+  },
+  "cylrit": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/d/d1/Cylrit_s.6.jpg",
+    "page": "Cylrit",
+    "manhwa": "tbate"
+  },
+  "dorothea": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/6/67/2026-02-05_23-42-40.png",
+    "page": "Dorothea",
+    "manhwa": "sesm"
+  },
+  "durden-walker": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/b/bb/DurdenWalkerSeason5.jpeg",
+    "page": "Durden Walker",
+    "manhwa": "tbate"
+  },
+  "eleanor-leywin": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/4/47/Ellie_S6.png",
+    "page": "Eleanor Leywin",
+    "manhwa": "tbate"
+  },
+  "elijah-knight": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/b/b2/Elijah_Knight_Xyrus.png",
+    "page": "Elijah Knight",
+    "manhwa": "tbate"
+  },
+  "endre-heinal": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/7/7c/2026-02-05_22-39-05.png",
+    "page": "Endre Heinal",
+    "manhwa": "sesm"
+  },
+  "godin": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/b/b8/2026-02-05_14-19-39.png",
+    "page": "Godin",
+    "manhwa": "sesm"
+  },
+  "gong-pildu": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/e/ed/Gong_Pildo_28.jpg",
+    "page": "Gong Pildu",
+    "manhwa": "orv"
+  },
+  "gregory": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/d/dd/2026-02-05_21-47-14.png",
+    "page": "Gregory",
+    "manhwa": "sesm"
+  },
+  "han-myungoh": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/2/2c/Han_Myungoh_%28novel%29.png",
+    "page": "Han Myungoh",
+    "manhwa": "orv"
+  },
+  "han-sooyoung": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/b/bc/Han_Sooyoung_%28Volume_3_cover%29.png",
+    "page": "Han Sooyoung",
+    "manhwa": "orv"
+  },
+  "helen-shard": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/2/2c/HelenShardSeason5.jpeg",
+    "page": "Helen Shard",
+    "manhwa": "tbate"
+  },
+  "hiren": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/1/13/Hiren.png",
+    "page": "Hiren",
+    "manhwa": "twatf"
+  },
+  "ishtvan-gaidar": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/9/96/2026-02-06_20-37-50.png",
+    "page": "Ishtvan Gaidar",
+    "manhwa": "sesm"
+  },
+  "jaehwan": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/4/4b/Jaehwan%27s_Unique_World_behind_him.png",
+    "page": "Jaehwan",
+    "manhwa": "twatf"
+  },
+  "jang-hayoung": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/8/85/Jhayoung_novel.png",
+    "page": "Jang Hayoung",
+    "manhwa": "orv"
+  },
+  "janya": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/c/c8/Janya.png",
+    "page": "Janya",
+    "manhwa": "twatf"
+  },
+  "jasmine-flamesworth": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/0/0d/JasmineFlamesworthSeason-5.jpeg",
+    "page": "Jasmine Flamesworth",
+    "manhwa": "tbate"
+  },
+  "jay": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/4/46/Jay.png",
+    "page": "Jay",
+    "manhwa": "twatf"
+  },
+  "jemina": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/e/e6/2026-02-06_17-01-26.png",
+    "page": "Jemina",
+    "manhwa": "sesm"
+  },
+  "jin-mihee": {
+    "source": "https://static.wikia.nocookie.net/reincarnator/images/a/a3/2024-01-21_02-56-28.png",
+    "page": "Jin Mihee",
+    "manhwa": "rein"
+  },
+  "josef-vayezid": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/2/25/2026-02-05_15-04-23.png",
+    "page": "Josef Vayezid",
+    "manhwa": "sesm"
+  },
+  "jung-heewon": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/7/74/Jung_Heewon_Webnovel.png",
+    "page": "Jung Heewon",
+    "manhwa": "orv"
+  },
+  "justia": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/d/da/2026-02-06_01-36-12.png",
+    "page": "Justia",
+    "manhwa": "sesm"
+  },
+  "kang-hansoo": {
+    "source": "https://static.wikia.nocookie.net/reincarnator/images/5/57/Kang_Han-Soo_%28Cover%29.png",
+    "page": "Kang Hansoo",
+    "manhwa": "rein"
+  },
+  "kanghun": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/f/f7/Kanghun.png",
+    "page": "Kanghun",
+    "manhwa": "twatf"
+  },
+  "kanghwang": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/d/d2/Kanghwang.png",
+    "page": "Kanghwang",
+    "manhwa": "twatf"
+  },
+  "karlton-javier": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/0/0d/Karlton_is_Beautiful.png",
+    "page": "Karlton Javier",
+    "manhwa": "twatf"
+  },
+  "kathyln-glayder": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/2/28/Kaity.jpg",
+    "page": "Kathyln Glayder",
+    "manhwa": "tbate"
+  },
+  "kezess-indrath": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/2/2b/6c98b1815adf3a9c602628a98b2e2262.jpg",
+    "page": "Kezess Indrath",
+    "manhwa": "tbate"
+  },
+  "kim-dokja": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/4/43/Kim_Dokja_Cover.jpg",
+    "page": "Kim Dokja",
+    "manhwa": "orv"
+  },
+  "kim-namwoon": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/f/fc/Knw_4.png",
+    "page": "Kim Namwoon",
+    "manhwa": "orv"
+  },
+  "kiriel": {
+    "source": "https://static.wikia.nocookie.net/reincarnator/images/2/23/Kiriel.jpg",
+    "page": "Kiriel",
+    "manhwa": "rein"
+  },
+  "kordri": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/2/2d/Kordri.png",
+    "page": "Kordri",
+    "manhwa": "tbate"
+  },
+  "kyrgios": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/b/b3/Kyrgios_Rodgraim_Webtoon.jpg",
+    "page": "Kyrgios Rodgraim",
+    "manhwa": "orv"
+  },
+  "lamashtu": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/d/d0/2026-02-06_01-26-28.png",
+    "page": "Lamashtu",
+    "manhwa": "sesm"
+  },
+  "lee-gilyoung": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/5/5b/Lee_Gilyoung_webnovel.png",
+    "page": "Lee Gilyoung",
+    "manhwa": "orv"
+  },
+  "lee-hyunsung": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/7/78/Lee_Hyunsung_Webnovel.png",
+    "page": "Lee Hyunsung",
+    "manhwa": "orv"
+  },
+  "lee-jihye": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/6/63/Lee_Jihye_Webnovel.png",
+    "page": "Lee Jihye",
+    "manhwa": "orv"
+  },
+  "lee-seolhwa": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/f/fe/Lee_Seolhwa_Webnovel.png",
+    "page": "Lee Seolhwa",
+    "manhwa": "orv"
+  },
+  "lilia-helstea": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/4/46/Lilia_Season_5.jpeg",
+    "page": "Lilia Helstea",
+    "manhwa": "tbate"
+  },
+  "lucas-wykes": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/1/10/LucasWykesSeason5.jpeg",
+    "page": "Lucas Wykes",
+    "manhwa": "tbate"
+  },
+  "marcella": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/5/57/2026-02-05_13-38-22.png",
+    "page": "Marcella",
+    "manhwa": "sesm"
+  },
+  "meikal-garnad": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/b/b0/Meikal_Garnad.png",
+    "page": "Meikal Garnad",
+    "manhwa": "twatf"
+  },
+  "mica-earthborn": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/2/2c/Mica_Earthborn.png",
+    "page": "Mica Earthborn",
+    "manhwa": "tbate"
+  },
+  "mino-han": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/a/a2/Mino_is_Hot.PNG",
+    "page": "Mino Han",
+    "manhwa": "twatf"
+  },
+  "mircea-dragulia": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/1/12/2026-02-06_17-41-33.png",
+    "page": "Mircea Dragulia",
+    "manhwa": "sesm"
+  },
+  "myre": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/2/2a/Myre.png",
+    "page": "Myre",
+    "manhwa": "tbate"
+  },
+  "ned": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/b/b0/2026-02-06_22-07-41.png",
+    "page": "Ned",
+    "manhwa": "sesm"
+  },
+  "oksana-bayezid": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/0/05/2026-02-05_21-14-45.png",
+    "page": "Oksana Bayezid",
+    "manhwa": "sesm"
+  },
+  "one-armed-jack": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/4/47/2026-02-05_14-01-01.png",
+    "page": "One-Armed Jack",
+    "manhwa": "sesm"
+  },
+  "orsan-canore": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/2/29/2026-02-05_23-31-02.png",
+    "page": "Orsan Canore",
+    "manhwa": "sesm"
+  },
+  "park-taesoon": {
+    "source": "https://static.wikia.nocookie.net/reincarnator/images/8/88/2024-01-21_03-32-31.png",
+    "page": "Park Taesoon",
+    "manhwa": "rein"
+  },
+  "peter-bayezid": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/1/10/2026-02-06_00-07-35.png",
+    "page": "Peter Bayezid",
+    "manhwa": "sesm"
+  },
+  "potree-canore": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/5/59/2026-02-05_21-39-49.png",
+    "page": "Potree Canore",
+    "manhwa": "sesm"
+  },
+  "radu-dragulia": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/8/8b/2026-02-07_00-13-14.png",
+    "page": "Radu Dragulia",
+    "manhwa": "sesm"
+  },
+  "reynolds-leywin": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/8/8f/Reynolds_season_5.jpeg",
+    "page": "Reynolds Leywin",
+    "manhwa": "tbate"
+  },
+  "rutger-vayezid": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/5/50/2026-02-05_21-04-57.png",
+    "page": "Rutger Vayezid",
+    "manhwa": "sesm"
+  },
+  "sakamoto": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/2/26/Sakamoto.png",
+    "page": "Sakamoto",
+    "manhwa": "twatf"
+  },
+  "sangjin": {
+    "source": "https://static.wikia.nocookie.net/reincarnator/images/9/98/2024-01-21_03-05-30.png",
+    "page": "Sangjin",
+    "manhwa": "rein"
+  },
+  "sarnus-dragulia": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/e/e4/2026-02-06_21-00-16.png",
+    "page": "Sarnus Dragulia",
+    "manhwa": "sesm"
+  },
+  "secretive-plotter": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/f/f1/Secretive_Plotter_%28Webtoon_Chapter_8%29.png",
+    "page": "Secretive Plotter",
+    "manhwa": "orv"
+  },
+  "seris": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/e/e8/Seris.jpg",
+    "page": "Seris",
+    "manhwa": "tbate"
+  },
+  "shin-yoosung": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/5/5a/Shin_Yoosung_webnovel.png",
+    "page": "Shin Yoosung",
+    "manhwa": "orv"
+  },
+  "siegmund-gaidar": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/1/13/2026-02-06_20-14-48.png",
+    "page": "Siegmund Gaidar",
+    "manhwa": "sesm"
+  },
+  "sirwen-armelt": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/f/f7/Sirwen_Armelt.png",
+    "page": "Sirwen Armelt",
+    "manhwa": "twatf"
+  },
+  "stefan": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/a/a4/2026-02-07_00-23-45.png",
+    "page": "Stefan",
+    "manhwa": "sesm"
+  },
+  "sun-wukong": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/5/5b/Wukong.jpg",
+    "page": "Great Sage, Heaven's Equal",
+    "manhwa": "orv"
+  },
+  "sylvie-leywin": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/f/f8/Sylvie_Human_Form.png",
+    "page": "Sylvie Leywin",
+    "manhwa": "tbate"
+  },
+  "tessia-eralith": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/9/9e/Tess_Full.png",
+    "page": "Tessia Eralith",
+    "manhwa": "tbate"
+  },
+  "timur-baranoff": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/8/84/2026-02-06_16-54-27.png",
+    "page": "Timur Baranoff",
+    "manhwa": "sesm"
+  },
+  "uriel": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/1/1d/Uriel_webnovel.jpg",
+    "page": "Uriel",
+    "manhwa": "orv"
+  },
+  "uto": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/d/d9/UtoSeason6.jpeg",
+    "page": "Uto",
+    "manhwa": "tbate"
+  },
+  "varay-aurae": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/7/72/Varay_Aurae_no_background.png",
+    "page": "Varay Aurae",
+    "manhwa": "tbate"
+  },
+  "virion-eralith": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/6/67/VirionEralithSeason6.jpeg",
+    "page": "Virion Eralith",
+    "manhwa": "tbate"
+  },
+  "vlad": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/4/42/Elf_armor.png",
+    "page": "Vlad",
+    "manhwa": "sesm"
+  },
+  "volkov-baranoff": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/f/fb/2026-02-06_17-20-34.png",
+    "page": "Volkov Baranoff",
+    "manhwa": "sesm"
+  },
+  "windsom": {
+    "source": "https://static.wikia.nocookie.net/thebate/images/a/a5/Windsom.png",
+    "page": "Windsom",
+    "manhwa": "tbate"
+  },
+  "yong-yun": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/6/61/Yong_Yun.png",
+    "page": "Yong Yun",
+    "manhwa": "twatf"
+  },
+  "yoo-joonghyuk": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/0/02/Yjh_novel_prof.png",
+    "page": "Yoo Joonghyuk",
+    "manhwa": "orv"
+  },
+  "yoo-mia": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/4/4e/Yoo_mia_458.png",
+    "page": "Yoo Mia",
+    "manhwa": "orv"
+  },
+  "yoo-sangah": {
+    "source": "https://static.wikia.nocookie.net/omniscient-readers-viewpoint/images/8/8e/Yoo_Sangah_webnovel.jpg",
+    "page": "Yoo Sangah",
+    "manhwa": "orv"
+  },
+  "yu-seolha": {
+    "source": "https://static.wikia.nocookie.net/the-world-after-the-fall/images/1/15/Yu_Seolha_ep_42.png",
+    "page": "Yu Seolha",
+    "manhwa": "twatf"
+  },
+  "zayar": {
+    "source": "https://static.wikia.nocookie.net/starembracing-swordmaster/images/2/20/Zayar.png",
+    "page": "Zayar",
+    "manhwa": "sesm"
+  }
+}
