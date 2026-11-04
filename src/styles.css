@@ -156,6 +156,8 @@ img { display: block; }
 .suggestion.is-active, .suggestion:hover { background: var(--accent-soft); }
 .suggestion__name { font-weight: 700; }
 .suggestion__meta { margin-left: auto; color: var(--text-3); font-size: 11px; }
+.suggestions__header { padding: 6px 8px 4px; font-size: 11px; }
+.suggestion__tag { flex: none; min-width: 64px; padding: 2px 8px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-text); font-family: var(--font-mono); font-size: 11px; text-align: center; }
 .suggestions__empty { padding: 8px 10px; color: var(--text-3); }
 
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }

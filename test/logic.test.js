@@ -66,3 +66,16 @@ test('portraits : aucun doublon (erreur fréquente des wikis)', () => {
     seen.set(h, c.id);
   }
 });
+
+test('recherche @manhwa : tag exact, début de tag, choix ambigu', () => {
+  assert.equal(L.parseQuery('@ORV', manhwas).manhwa.id, 'orv');
+  assert.equal(L.parseQuery('@orv kim', manhwas).text, 'kim');
+  assert.equal(L.parseQuery('@tb', manhwas).manhwa.id, 'tbate');
+  assert.equal(L.parseQuery('@reincarnator', manhwas).manhwa.id, 'rein');
+  assert.equal(L.parseQuery('@', manhwas).choices.length, manhwas.length);
+  assert.deepEqual(L.parseQuery('@t', manhwas).choices.map((m) => m.id).sort(), ['tbate', 'twatf']);
+  assert.equal(L.parseQuery('kim dokja', manhwas).text, 'kim dokja');
+  const orv = L.search(chars, '', new Set(), Infinity, 'orv');
+  assert.equal(orv.length, chars.filter((c) => c.manhwa === 'orv').length);
+  assert.ok(L.search(chars, 'kim', new Set(), Infinity, 'orv').every((c) => c.manhwa === 'orv'));
+});

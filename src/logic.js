@@ -77,13 +77,34 @@
   const normalize = (s) =>
     s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+  const manhwaKeys = (m) => [m.id, m.short, ...(m.tags ?? [])].map(normalize).filter(Boolean);
+
+  /**
+   * Analyse une saisie « @tag texte ». Sans @ : { text }.
+   * Avec @ : { manhwa } si le tag désigne un seul manhwa (exact, ou début de tag unique),
+   * sinon { choices } = manhwa possibles (tous si le tag est vide).
+   */
+  function parseQuery(query, manhwas) {
+    const m = /^\s*@(\S*)\s*(.*)$/s.exec(query);
+    if (!m) return { text: query };
+    const tag = normalize(m[1]);
+    const text = m[2];
+    if (!tag) return { choices: manhwas, text };
+    const exact = manhwas.filter((x) => manhwaKeys(x).includes(tag));
+    if (exact.length === 1) return { manhwa: exact[0], text };
+    const partial = manhwas.filter((x) => manhwaKeys(x).some((k) => k.startsWith(tag)) || normalize(x.title).startsWith(tag));
+    if (partial.length === 1) return { manhwa: partial[0], text };
+    return { choices: partial, text };
+  }
+
   /** Suggestions pour la saisie : préfixe d'un mot d'abord, puis sous-chaîne. */
-  function search(characters, query, exclude = new Set(), limit = 8) {
+  function search(characters, query, exclude = new Set(), limit = 8, manhwa = null) {
     const q = normalize(query);
-    if (!q) return [];
+    if (!q && !manhwa) return [];
     const scored = [];
     for (const c of characters) {
-      if (exclude.has(c.id)) continue;
+      if (exclude.has(c.id) || (manhwa && c.manhwa !== manhwa)) continue;
+      if (!q) { scored.push([0, c]); continue; }
       const n = normalize(c.name);
       let score = -1;
       if (n.startsWith(q)) score = 0;
@@ -95,7 +116,7 @@
     return scored.slice(0, limit).map(([, c]) => c);
   }
 
-  const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, dailyCharacter, hash, normalize, search };
+  const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, dailyCharacter, hash, normalize, parseQuery, search };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.Logic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

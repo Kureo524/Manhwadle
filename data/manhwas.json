@@ -1,7 +1,7 @@
 [
-  { "id": "orv",    "title": "Omniscient Reader's Viewpoint", "short": "ORV",    "wiki": "https://omniscient-readers-viewpoint.fandom.com/api.php" },
-  { "id": "twatf",  "title": "The World After The Fall",      "short": "TWATF",  "wiki": "https://the-world-after-the-fall.fandom.com/api.php" },
-  { "id": "tbate",  "title": "The Beginning After The End",   "short": "TBATE",  "wiki": "https://tbate.fandom.com/api.php" },
-  { "id": "rein",   "title": "Reincarnator",                  "short": "Reinc.", "wiki": "https://reincarnator.fandom.com/api.php" },
-  { "id": "sesm",   "title": "Star-Embracing Swordmaster",    "short": "SESM",   "wiki": "https://starembracing-swordmaster.fandom.com/api.php" }
+  { "id": "orv",    "title": "Omniscient Reader's Viewpoint", "short": "ORV", "tags": ["orv","omniscient"],    "wiki": "https://omniscient-readers-viewpoint.fandom.com/api.php" },
+  { "id": "twatf",  "title": "The World After The Fall",      "short": "TWATF", "tags": ["twatf","waf"],  "wiki": "https://the-world-after-the-fall.fandom.com/api.php" },
+  { "id": "tbate",  "title": "The Beginning After The End",   "short": "TBATE", "tags": ["tbate","beginning"],  "wiki": "https://tbate.fandom.com/api.php" },
+  { "id": "rein",   "title": "Reincarnator",                  "short": "Reinc.", "tags": ["rein","reinc","reincarnator"], "wiki": "https://reincarnator.fandom.com/api.php" },
+  { "id": "sesm",   "title": "Star-Embracing Swordmaster",    "short": "SESM", "tags": ["sesm","ses","stellar","swordmaster"],   "wiki": "https://starembracing-swordmaster.fandom.com/api.php" }
 ]

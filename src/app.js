@@ -278,30 +278,60 @@
     renderStats();
     const input = $('search');
     input.disabled = game.done;
-    input.placeholder = game.done ? (mode === 'daily' ? 'Reviens demain pour un nouveau personnage.' : 'Partie terminée.') : 'Tape le nom d\'un personnage…';
+    input.placeholder = game.done ? (mode === 'daily' ? 'Reviens demain pour un nouveau personnage.' : 'Partie terminée.') : 'Tape le nom d\'un personnage…  (@ORV pour lister un manhwa)';
     $('give-up').hidden = mode !== 'endless' || game.done;
   }
 
   // ---------- Suggestions ----------
+  // Éléments : { char } (un personnage) ou { manhwa } (choix de filtre après « @ »).
   let suggestionList = [];
   let active = 0;
 
   function closeSuggestions() { $('suggestions').hidden = true; suggestionList = []; }
 
+  function pick(item) {
+    if (!item) return;
+    if (item.char) return submitGuess(item.char.id);
+    const input = $('search');
+    input.value = `@${item.manhwa.short.replace(/\.$/, '')} `;
+    active = 0;
+    openSuggestions();
+  }
+
   function openSuggestions() {
     const input = $('search');
     const box = $('suggestions');
+    if (!input.value.trim() || game.done) return closeSuggestions();
     const pool = poolFor(mode);
-    suggestionList = L.search(pool, input.value, new Set(game.guesses));
-    if (!input.value.trim()) return closeSuggestions();
+    const guessed = new Set(game.guesses);
+    const inPool = manhwas.filter((m) => pool.some((c) => c.manhwa === m.id));
+    const q = L.parseQuery(input.value, inPool);
+    let header = null;
+    if (q.choices) {
+      suggestionList = q.choices.map((m) => ({ manhwa: m }));
+      header = 'Filtrer par manhwa';
+    } else {
+      const chars = L.search(pool, q.text, guessed, q.manhwa ? Infinity : 8, q.manhwa?.id ?? null);
+      suggestionList = chars.map((c) => ({ char: c }));
+      if (q.manhwa) header = `${q.manhwa.title} · ${chars.length} personnage${chars.length > 1 ? 's' : ''}`;
+    }
     active = Math.min(active, Math.max(suggestionList.length - 1, 0));
     box.replaceChildren();
-    if (!suggestionList.length) box.append(el('div', 'suggestions__empty', 'Aucun personnage ne correspond.'));
-    suggestionList.forEach((c, i) => {
+    if (header) box.append(el('div', 'suggestions__header system', `[${header}]`));
+    if (!suggestionList.length) box.append(el('div', 'suggestions__empty', q.choices ? 'Aucun manhwa ne correspond.' : 'Aucun personnage ne correspond.'));
+    suggestionList.forEach((item, i) => {
       const b = el('button', `suggestion ${i === active ? 'is-active' : ''}`);
       b.setAttribute('role', 'option');
-      b.append(portrait(c, 'sm'), el('span', 'suggestion__name', c.name), el('span', 'suggestion__meta', manhwaById.get(c.manhwa).short));
-      b.addEventListener('mousedown', (e) => { e.preventDefault(); submitGuess(c.id); });
+      if (item.char) {
+        const c = item.char;
+        b.append(portrait(c, 'sm'), el('span', 'suggestion__name', c.name));
+        if (!q.manhwa) b.append(el('span', 'suggestion__meta', manhwaById.get(c.manhwa).short));
+      } else {
+        const m = item.manhwa;
+        const left = pool.filter((c) => c.manhwa === m.id && !guessed.has(c.id)).length;
+        b.append(el('span', 'suggestion__tag', `@${m.short.replace(/\.$/, '')}`), el('span', 'suggestion__name', m.title), el('span', 'suggestion__meta', `${left} persos`));
+      }
+      b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(item); });
       b.addEventListener('mouseenter', () => { active = i; highlight(); });
       box.append(b);
     });
@@ -323,9 +353,12 @@
   input.addEventListener('focus', openSuggestions);
   input.addEventListener('blur', () => setTimeout(closeSuggestions, 80));
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' && suggestionList.length) { e.preventDefault(); active = (active + 1) % suggestionList.length; highlight(); }
-    else if (e.key === 'ArrowUp' && suggestionList.length) { e.preventDefault(); active = (active - 1 + suggestionList.length) % suggestionList.length; highlight(); }
-    else if (e.key === 'Enter' && suggestionList[active]) { e.preventDefault(); submitGuess(suggestionList[active].id); }
+    const n = suggestionList.length;
+    if (e.key === 'ArrowDown' && n) { e.preventDefault(); active = (active + 1) % n; highlight(); }
+    else if (e.key === 'ArrowUp' && n) { e.preventDefault(); active = (active - 1 + n) % n; highlight(); }
+    else if (e.key === 'Enter' && suggestionList[active]) { e.preventDefault(); pick(suggestionList[active]); }
+    // Tab complète le tag de manhwa sélectionné.
+    else if (e.key === 'Tab' && suggestionList[active]?.manhwa) { e.preventDefault(); pick(suggestionList[active]); }
     else if (e.key === 'Escape') closeSuggestions();
   });
   window.addEventListener('resize', () => { closeSuggestions(); renderMode(); });
