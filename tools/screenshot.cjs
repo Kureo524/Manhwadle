@@ -10,15 +10,25 @@ const root = path.join(__dirname, '..');
 app.whenReady().then(async () => {
   const data = require(path.join(root, 'data-loader.js')).loadGameData(root);
   ipcMain.on('manhwadle:data', (event) => { event.returnValue = data; });
+  ipcMain.on('manhwadle:quit', () => console.log('[quit] demande de fermeture reçue'));
+  // Partage en image : la capture est enregistrée dans un fichier (SHARE_OUT), jamais dans le presse-papiers.
+  ipcMain.handle('manhwadle:share-image', async (event) => {
+    const img = await require(path.join(root, 'share-image.js')).captureGameArea(event.sender);
+    if (process.env.SHARE_OUT) fs.writeFileSync(process.env.SHARE_OUT, img.toPNG());
+    console.log('[partage] image', img.getSize());
+    return true;
+  });
   setTimeout(() => { console.error('délai dépassé'); app.exit(1); }, 30000);
   const win = new BrowserWindow({
-    width: 1360, height: 860, show: false, backgroundColor: '#0c0c12',
+    width: Number(process.env.WIDTH || 1360), height: Number(process.env.HEIGHT || 860), show: false, backgroundColor: '#0c0c12',
     webPreferences: { preload: process.env.WEB_URL ? undefined : path.join(root, 'preload.js'), contextIsolation: true, sandbox: true, offscreen: true },
   });
   win.webContents.on('console-message', (e) => { if (e.level === 'error' || e.level === 3) console.error('[page]', e.message); });
+  // Même mise à l'échelle que l'appli (sauf en mode web, où c'est le CSS adaptatif qui agit).
+  if (!process.env.WEB_URL) require(path.join(root, 'window-fit.js')).fitToWindow(win);
   if (process.env.WEB_URL) await win.loadURL(process.env.WEB_URL);
   else await win.loadFile(path.join(root, 'src/index.html'));
-  await win.webContents.executeJavaScript(`localStorage.clear(); localStorage.setItem('manhwadle.mode', ${JSON.stringify(JSON.stringify(mode))}); location.reload();`);
+  await win.webContents.executeJavaScript(`localStorage.clear(); localStorage.setItem('manhwadle.mode', ${JSON.stringify(JSON.stringify(mode))}); ${process.env.STATS ? `localStorage.setItem('manhwadle.stats', ${JSON.stringify(process.env.STATS)});` : ''} location.reload();`);
   await new Promise((r) => win.webContents.once('did-finish-load', r));
   // Le jeu se charge de façon asynchrone (boot.js) : on attend que la fenêtre de scénario existe.
   for (let i = 0; i < 100; i++) {
@@ -30,6 +40,10 @@ app.whenReady().then(async () => {
   }
   if (process.env.TYPE) await win.webContents.executeJavaScript(`(() => { const i = document.getElementById('search'); i.focus(); i.value = ${JSON.stringify(process.env.TYPE)}; i.dispatchEvent(new Event('input')); })()`);
   await new Promise((r) => setTimeout(r, 1500));
+  // UPDATE_STATE : simule un message de mise à jour (downloading | ready).
+  if (process.env.UPDATE_STATE) { win.webContents.send('manhwadle:update', { state: process.env.UPDATE_STATE, version: '0.1.2' }); await new Promise((r) => setTimeout(r, 300)); }
+  // EVAL : code exécuté dans la page juste avant la capture (ex. ouvrir un panneau).
+  if (process.env.EVAL) { await win.webContents.executeJavaScript(process.env.EVAL); await new Promise((r) => setTimeout(r, 600)); }
   if (process.env.SKIP) {
     await win.webContents.executeJavaScript(`document.getElementById('give-up').click()`);
     await new Promise((r) => setTimeout(r, 800));

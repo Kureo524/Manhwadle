@@ -4,6 +4,7 @@
   const { manhwas, characters } = window.manhwadle;
   const L = window.Logic;
 
+  const SITE_URL = 'https://kureo524.github.io/Manhwadle/';
   const HINT_AT = 6;        // essais avant l'indice (portrait flouté)
   const HINT_CLEAR_AT = 10; // essais avant un flou plus léger
   const byId = new Map(characters.map((c) => [c.id, c]));
@@ -31,6 +32,19 @@
   let game = null; // { target, guesses: [ids], done, won, day? }
 
   const poolFor = (m) => (m === 'daily' ? characters : characters.filter((c) => enabled.has(c.manhwa)));
+
+  // Copie dans le presse-papiers (API moderne, sinon sélection + copie).
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch { /* repli */ }
+    const ta = Object.assign(document.createElement('textarea'), { value: text });
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.append(ta); ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  }
+
+  const dailyStreak = () => L.liveStreak(stats.daily);
 
   // ---------- Parties ----------
   function loadGame() {
@@ -188,8 +202,18 @@
     const box = $('feed');
     box.replaceChildren();
     const lines = game.guesses.map((id, i) => reaction(id, i));
+    const live = dailyStreak();
+    if (mode === 'daily' && !game.done && !game.guesses.length && live) {
+      lines.push([`Votre série de ${live} jour${live > 1 ? 's' : ''} est en jeu. Le scénario se termine à minuit.`, null]);
+    }
     if (game.done && !game.won) lines.push(['Les constellations sont déçues.', null]);
     if (game.done && game.won) lines.push([`${reward(game.guesses.length)} pièces ont été sponsorisées.`, null]);
+    if (game.done && mode === 'daily') {
+      const s = stats.daily;
+      if (game.won && s.streak > 1 && s.streak === s.best) lines.push([`Nouveau record : ${s.streak} jours consécutifs.`, null]);
+      else if (game.won) lines.push([`Série : ${s.streak} jour${s.streak > 1 ? 's' : ''}.`, null]);
+      else lines.push(['La série est rompue.', null]);
+    }
     lines.slice(-3).reverse().forEach(([text, who], i) => {
       const msg = el('div', `feed__msg ${i === 0 && animate ? 'is-new' : ''}`);
       if (who) {
@@ -211,6 +235,15 @@
     return dl;
   }
 
+  // Ligne « Série » de la fenêtre de scénario (mode jour).
+  function streakRow() {
+    const live = dailyStreak();
+    const best = stats.daily.best;
+    const days = (k) => `jour${k > 1 ? 's' : ''}`;
+    if (!live) return ['Série', best ? `aucune en cours · record ${best} ${days(best)}` : 'aucune en cours'];
+    return ['Série', `${days(live)} consécutif${live > 1 ? 's' : ''} · record ${best}`, live];
+  }
+
   function renderScenario() {
     const box = $('scenario');
     box.replaceChildren();
@@ -230,15 +263,32 @@
       main.append(rows([
         ['Essais', '', n],
         ['Récompense', game.won ? 'pièces' : 'aucune', game.won ? reward(n) : undefined],
-        ...(mode === 'daily' ? [['Prochain scénario', `dans ${untilMidnight()}`]] : []),
+        ...(mode === 'daily' ? [streakRow(), ['Prochain scénario', `dans ${untilMidnight()}`]] : []),
       ]));
+      const actions = el('div', 'scenario__actions');
+      const share = el('button', 'link link--strong', '[Partager le résultat]');
+      share.addEventListener('click', async () => {
+        // Appli de bureau : image de la zone de jeu. Navigateur : texte (une page ne peut pas se capturer).
+        if (typeof window.manhwadle.shareImage === 'function') {
+          closeSuggestions();
+          share.textContent = (await window.manhwadle.shareImage()) ? '[Image copiée.]' : '[Copie impossible.]';
+          setTimeout(() => { share.textContent = '[Partager le résultat]'; }, 1800);
+          return;
+        }
+        const text = L.shareText({
+          daily: mode === 'daily', day: game.day, won: game.won, streak: dailyStreak(), url: SITE_URL,
+          rows: game.guesses.map((id) => L.compare(byId.get(id), game.target).map((r) => r.state)),
+        });
+        share.textContent = (await copyText(text)) ? '[Résultat copié.]' : '[Copie impossible.]';
+        setTimeout(() => { share.textContent = '[Partager le résultat]'; }, 1800);
+      });
+      actions.append(share);
       if (mode === 'endless') {
-        const actions = el('div', 'scenario__actions');
         const again = el('button', 'link link--strong', '[Scénario suivant]');
         again.addEventListener('click', () => { newEndlessGame(); render(); $('search').focus(); });
         actions.append(again);
-        main.append(actions);
       }
+      main.append(actions);
       side.append(portrait(t, 'lg'));
     } else {
       const level = mode === 'daily' ? 'A' : DIFFICULTY[Math.min(enabled.size, DIFFICULTY.length - 1)];
@@ -249,6 +299,7 @@
         ['Condition de réussite', `Identifier le personnage mystère parmi ${pool.length} incarnations.`],
         ['Temps limite', mode === 'daily' ? `${untilMidnight()} (minuit)` : 'Aucun'],
         ['Récompense', 'pièces', reward(n + 1)],
+        ...(mode === 'daily' ? [streakRow()] : []),
         ['Échec', mode === 'daily' ? '???' : 'Abandon'],
       ]));
       if (n >= HINT_AT) {
@@ -276,7 +327,7 @@
     const items = [
       ['Scénarios', s.played],
       ['Réussis', s.played ? `${Math.round((s.won / s.played) * 100)} %` : '–'],
-      ['Série', s.streak],
+      ['Série', mode === 'daily' ? dailyStreak() : s.streak],
       ['Record', s.best],
       ['Essais moyens', s.won ? (s.totalGuesses / s.won).toFixed(1).replace('.', ',') : '–'],
       ['Pièces', (s.coins ?? 0).toLocaleString('fr-FR')],
@@ -286,7 +337,34 @@
       d.append(el('b', '', value), ']');
       return d;
     }));
+    const toggle = el('button', 'link', $('save').hidden ? '[Sauvegarde]' : '[Fermer la sauvegarde]');
+    toggle.addEventListener('click', () => { $('save').hidden = !$('save').hidden; renderSave(); renderStats(); });
+    $('stats').append(toggle);
   }
+
+  // ---------- Sauvegarde (code à copier / restaurer sur un autre appareil) ----------
+  function renderSave() {
+    if ($('save').hidden) return;
+    $('save-code').value = L.encodeSave(stats);
+    $('save-msg').textContent = '';
+  }
+
+  $('save-copy').addEventListener('click', async () => {
+    $('save-msg').textContent = (await copyText($('save-code').value)) ? '[Code copié.]' : '[Copie impossible : sélectionne le code à la main.]';
+  });
+  $('save-restore').addEventListener('click', () => {
+    try {
+      const data = L.decodeSave($('save-input').value);
+      stats = { daily: { ...emptyStats(), ...data.daily }, endless: { ...emptyStats(), ...data.endless } };
+      store.set('stats', stats);
+      $('save-input').value = '';
+      render();
+      renderSave();
+      $('save-msg').textContent = '[Sauvegarde restaurée.]';
+    } catch (e) {
+      $('save-msg').textContent = `[${e.message}]`;
+    }
+  });
 
   function renderFilters() {
     const box = $('filters');
@@ -447,6 +525,29 @@
     if (mode === 'daily' && game.day !== L.dayKey()) { loadGame(); render(); }
     else if (mode === 'daily') renderScenario();
   }, 60000);
+
+  // Mises à jour (appli de bureau) : message système quand une version est téléchargée / prête.
+  if (typeof window.manhwadle.onUpdate === 'function') {
+    window.manhwadle.onUpdate(({ state, version }) => {
+      const box = $('update');
+      const v = version ? ` v${version}` : '';
+      box.replaceChildren();
+      if (state === 'downloading') box.append(el('span', '', `[Une mise à jour${v} est en cours de téléchargement.]`));
+      else if (state === 'ready') {
+        box.append(el('span', '', `[La mise à jour${v} est prête. Elle s'installera à la fermeture.]`));
+        const now = el('button', 'link link--strong', '[Redémarrer maintenant]');
+        now.addEventListener('click', () => window.manhwadle.installUpdate());
+        box.append(now);
+      } else return;
+      box.hidden = false;
+    });
+  }
+
+  // Appli de bureau uniquement : la fenêtre n'a pas de barre de titre.
+  if (typeof window.manhwadle.quit === 'function') {
+    $('quit').hidden = false;
+    $('quit').addEventListener('click', () => window.manhwadle.quit());
+  }
 
   loadGame();
   render();

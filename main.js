@@ -1,16 +1,46 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('node:path');
 const { loadGameData } = require('./data-loader');
+const { fitToWindow } = require('./window-fit');
+const { copyGameArea } = require('./share-image');
+const { setupUpdates } = require('./updater');
 
-const gameData = loadGameData();
-ipcMain.on('manhwadle:data', (event) => { event.returnValue = gameData; });
+// Une seule instance : relancer l'appli ramène la fenêtre déjà ouverte au premier plan.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+  start();
+}
+
+// Mise en place de l'appli (première instance seulement).
+function start() {
+  const gameData = loadGameData();
+  ipcMain.on('manhwadle:data', (event) => { event.returnValue = gameData; });
+  ipcMain.on('manhwadle:quit', () => app.quit());
+  ipcMain.handle('manhwadle:share-image', (event) => copyGameArea(event.sender).catch(() => false));
+
+  // Aucune permission web (caméra, micro, notifications…) n'est utile au jeu.
+  app.whenReady().then(() => {
+    const { session } = require('electron');
+    session.defaultSession.setPermissionRequestHandler((_wc, _perm, callback) => callback(false));
+    setupUpdates(createWindow());
+  });
+  app.on('window-all-closed', () => app.quit());
+}
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 1360,
     height: 860,
-    minWidth: 1040,
-    minHeight: 640,
+    minWidth: 720,
+    minHeight: 480,
     // Fenêtre transparente : le compositeur (Hyprland) floute le fond d'écran derrière.
     transparent: true,
     backgroundColor: '#00000000',
@@ -31,17 +61,18 @@ function createWindow() {
 
   // La page ne quitte jamais l'appli ; seuls les liens https s'ouvrent dans le navigateur.
   win.webContents.on('will-navigate', (event) => event.preventDefault());
+  // Pas de barre de titre sous un gestionnaire en tuiles : Ctrl+Q quitte, même depuis la recherche.
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && (input.control || input.meta) && input.key.toLowerCase() === 'q') {
+      event.preventDefault();
+      app.quit();
+    }
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
+  fitToWindow(win);
   win.loadFile(path.join(__dirname, 'src/index.html'));
+  return win;
 }
-
-// Aucune permission web (caméra, micro, notifications…) n'est utile au jeu.
-app.whenReady().then(() => {
-  const { session } = require('electron');
-  session.defaultSession.setPermissionRequestHandler((_wc, _perm, callback) => callback(false));
-  createWindow();
-});
-app.on('window-all-closed', () => app.quit());

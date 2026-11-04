@@ -116,7 +116,83 @@
     return scored.slice(0, limit).map(([, c]) => c);
   }
 
-  const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, dailyCharacter, hash, normalize, parseQuery, search };
+  // ---------- Série, partage, sauvegarde ----------
+
+  /** Date de sortie : le scénario du jour n° 1. */
+  const LAUNCH_DAY = '2026-11-04';
+  const DAY_MS = 864e5;
+  const dayIndex = (key) => Math.round(Date.UTC(...key.split('-').map((n, i) => Number(n) - (i === 1 ? 1 : 0))) / DAY_MS);
+
+  /** Numéro du scénario du jour (1 le jour de la sortie). */
+  const dayNumber = (key = dayKey()) => dayIndex(key) - dayIndex(LAUNCH_DAY) + 1;
+
+  /**
+   * Série en cours du mode « jour » : elle ne compte que si le dernier scénario réussi date
+   * d'aujourd'hui ou d'hier (sinon elle est déjà rompue, même si le joueur n'a pas rejoué).
+   */
+  function liveStreak(daily, today = dayKey()) {
+    if (!daily || !daily.streak || !daily.lastDay) return 0;
+    const gap = dayIndex(today) - dayIndex(daily.lastDay);
+    return gap === 0 || gap === 1 ? daily.streak : 0;
+  }
+
+  const SQUARE = { ok: '🟩', partial: '🟨', no: '🟥', unknown: '⬜' };
+
+  /** Texte à partager : une ligne de carrés par essai, sans nommer aucun personnage. */
+  function shareText({ daily, day, won, rows, streak, url }) {
+    const title = daily ? `Manhwadle — Scénario #${dayNumber(day)}` : 'Manhwadle — Scénario secondaire';
+    const n = rows.length;
+    const result = won ? `[Réussi en ${n} essai${n > 1 ? 's' : ''}${daily && streak ? ` · série de ${streak} jour${streak > 1 ? 's' : ''}` : ''}]`
+      : `[Échec après ${n} essai${n > 1 ? 's' : ''}]`;
+    const grid = rows.map((states) => states.map((st) => SQUARE[st] ?? SQUARE.unknown).join(''));
+    return [title, result, ...grid, url].filter(Boolean).join('\n');
+  }
+
+  // Base64 URL-safe d'un texte UTF-8, identique dans le navigateur et dans Node (tests).
+  const toB64 = (str) => {
+    const bytes = new TextEncoder().encode(str);
+    const bin = Array.from(bytes, (b) => String.fromCharCode(b)).join('');
+    const b64 = typeof btoa === 'function' ? btoa(bin) : Buffer.from(bin, 'binary').toString('base64');
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  };
+  const fromB64 = (b64) => {
+    const std = b64.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = typeof atob === 'function' ? atob(std) : Buffer.from(std, 'base64').toString('binary');
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  };
+
+  const SAVE_PREFIX = 'MWD1';
+  const STAT_KEYS = ['played', 'won', 'streak', 'best', 'totalGuesses', 'coins'];
+
+  /** Code de sauvegarde des statistiques : préfixe, données, somme de contrôle. */
+  function encodeSave(stats) {
+    const body = toB64(JSON.stringify(stats));
+    return `${SAVE_PREFIX}-${body}-${hash(body).toString(36)}`;
+  }
+
+  /** Décode et valide un code de sauvegarde. Lève une erreur lisible s'il est invalide. */
+  function decodeSave(code) {
+    const parts = String(code).trim().split('-');
+    if (parts.length < 3 || parts[0] !== SAVE_PREFIX) throw new Error('Ce n\'est pas un code de sauvegarde Manhwadle.');
+    const sum = parts.pop();
+    const body = parts.slice(1).join('-');
+    if (hash(body).toString(36) !== sum) throw new Error('Code incomplet ou modifié.');
+    let data;
+    try { data = JSON.parse(fromB64(body)); } catch { throw new Error('Code illisible.'); }
+    for (const m of ['daily', 'endless']) {
+      const st = data?.[m];
+      if (!st || typeof st !== 'object') throw new Error('Code incomplet ou modifié.');
+      for (const k of STAT_KEYS) {
+        if (st[k] === undefined) st[k] = 0;
+        if (!Number.isInteger(st[k]) || st[k] < 0) throw new Error('Code incomplet ou modifié.');
+      }
+      if (st.lastDay !== null && st.lastDay !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(st.lastDay)) throw new Error('Code incomplet ou modifié.');
+    }
+    return data;
+  }
+
+  const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, dailyCharacter, hash, normalize, parseQuery, search,
+    LAUNCH_DAY, dayNumber, liveStreak, shareText, encodeSave, decodeSave };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.Logic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

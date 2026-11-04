@@ -49,6 +49,15 @@ La fenêtre de scénario affiche la catégorie, la difficulté, la condition de 
 limite, la récompense et l'échec. L'indice (une silhouette floutée) se débloque à 6 essais et
 devient presque net à 10.
 
+**Série** : chaque perso du jour trouvé prolonge ta série de jours consécutifs ; un jour sauté ou un
+échec la rompt. La fenêtre de scénario affiche la série en cours et ton record.
+
+**Partager** : en fin de partie, « Partager le résultat » copie dans le presse-papiers une image de la
+partie (fenêtre de scénario et essais) dans l'appli de bureau, ou une grille de carrés de couleur sur le site.
+
+**Sauvegarde** : la série et les statistiques restent dans ton navigateur. « [Sauvegarde] », en bas de
+page, donne un code à copier pour les retrouver sur un autre appareil ou dans l'appli.
+
 **Récompense** : 1 000 pièces au premier essai, puis 100 de moins par essai supplémentaire
 (100 au minimum). Les pièces s'additionnent dans tes statistiques.
 
@@ -121,6 +130,14 @@ npm install
 npm install-scripts approve electron   # npm ≥ 12 bloque les scripts d'installation
 npm start
 ```
+
+**Mises à jour** : l'appli de bureau vérifie au lancement s'il existe une release plus récente sur GitHub,
+télécharge en arrière-plan seulement ce qui a changé, et s'installe à la fermeture (ou tout de suite avec
+« [Redémarrer maintenant] »). Windows (installateur) et Linux (AppImage) ; pas sur macOS, qui refuse la
+mise à jour automatique d'une appli non signée. Une seule instance de l'appli peut être ouverte à la fois.
+
+Pour publier une mise à jour : augmenter `version` dans `package.json`, fusionner dans `main`, puis poser
+le tag `vX.Y.Z` : la CI construit et publie les binaires et leurs fichiers de mise à jour.
 
 Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (nécessite `fuse2`).
 
