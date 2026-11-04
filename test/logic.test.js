@@ -79,3 +79,38 @@ test('recherche @manhwa : tag exact, début de tag, choix ambigu', () => {
   assert.equal(orv.length, chars.filter((c) => c.manhwa === 'orv').length);
   assert.ok(L.search(chars, 'kim', new Set(), Infinity, 'orv').every((c) => c.manhwa === 'orv'));
 });
+
+test('série vivante : comptée aujourd\'hui et demain, rompue après', () => {
+  const s = { streak: 4, lastDay: '2026-11-04' };
+  assert.equal(L.liveStreak(s, '2026-11-04'), 4);
+  assert.equal(L.liveStreak(s, '2026-11-05'), 4);
+  assert.equal(L.liveStreak(s, '2026-11-06'), 0);
+  assert.equal(L.liveStreak({ streak: 0, lastDay: '2026-11-04' }, '2026-11-04'), 0);
+  assert.equal(L.liveStreak(s, '2026-12-01'), 0);
+});
+
+test('numéro du scénario du jour', () => {
+  assert.equal(L.dayNumber('2026-11-04'), 1);
+  assert.equal(L.dayNumber('2026-11-05'), 2);
+  assert.equal(L.dayNumber('2027-01-01'), 59);
+});
+
+test('partage : grille sans spoiler', () => {
+  const t = L.shareText({ daily: true, day: '2026-11-05', won: true, streak: 3, url: 'https://x',
+    rows: [['no', 'ok', 'partial', 'unknown'], ['ok', 'ok', 'ok', 'ok']] });
+  assert.equal(t, 'Manhwadle — Scénario #2\n[Réussi en 2 essais · série de 3 jours]\n🟥🟩🟨⬜\n🟩🟩🟩🟩\nhttps://x');
+  assert.ok(L.shareText({ daily: false, won: false, rows: [['no']] }).includes('[Échec après 1 essai]'));
+});
+
+test('sauvegarde : aller-retour, accents, code modifié refusé', () => {
+  const stats = { daily: { played: 5, won: 4, streak: 3, best: 4, totalGuesses: 20, lastDay: '2026-11-04', coins: 2500 },
+    endless: { played: 2, won: 1, streak: 0, best: 1, totalGuesses: 6, lastDay: null, coins: 700, note: 'é' } };
+  const code = L.encodeSave(stats);
+  assert.match(code, /^MWD1-[A-Za-z0-9_-]+-[a-z0-9]+$/);
+  assert.deepEqual(L.decodeSave(code), stats);
+  const tampered = code.replace(/-([a-z0-9]+)$/, (m, c) => `-${c === 'a' ? 'b' : 'a'}`);
+  assert.throws(() => L.decodeSave(tampered), /modifié/);
+  assert.throws(() => L.decodeSave('bonjour'), /code de sauvegarde/);
+  const bad = L.encodeSave({ daily: { played: -1 }, endless: {} });
+  assert.throws(() => L.decodeSave(bad), /modifié/);
+});
