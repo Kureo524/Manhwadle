@@ -114,29 +114,6 @@ Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (néc
 - **Mode démo du build** : `MANHWADLE_DEMO="kim-dokja,vlad" MANHWADLE_TYPE="@orv" ./Manhwadle.AppImage`
   rejoue des essais. Il ne touche ni aux parties ni aux statistiques du joueur.
 
-## Données
-
-| Fichier | Contenu |
-|---|---|
-| `data/manhwas.json` | œuvres, tags de recherche, API de leur wiki |
-| `data/characters.json` | personnages ; `page` = page du wiki, `"?"` ou `chapter: null` = inconnu, `verify: true` = fiche à relire |
-| `assets/characters/<manhwa>/<id>.webp` | portraits 320×320 (sinon monogramme) |
-| `data/credits.json` | source de chaque portrait |
-
-Le **statut** (vivant/mort) suit l'état dans le webtoon quand le wiki le précise. Attention aux spoilers.
-
-### Ajouter des portraits
-
-Le CDN d'images de Fandom refuse les scripts (403). Les portraits passent donc par le navigateur :
-
-1. `npm run portraits:galerie` génère `assets/inbox/galerie.html`.
-2. Dans le navigateur, clique sur l'identifiant pour le copier, puis clic droit sur l'image >
-   « Enregistrer l'image sous… » `assets/inbox/<id>.<ext>`.
-3. `npm run portraits:import` recadre chaque image et note sa source.
-
-Restent sans portrait : Aldir, Euren Chiver, Jinhong Lim (images fausses sur les wikis) et
-5 persos de Reincarnator (aucune image sur le wiki).
-
 ## Workflow git
 
 - `main` : versions validées (protégée, PR obligatoire)
