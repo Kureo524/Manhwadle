@@ -19,7 +19,7 @@ app.whenReady().then(async () => {
   win.webContents.on('console-message', (e) => { if (e.level === 'error' || e.level === 3) console.error('[page]', e.message); });
   if (process.env.WEB_URL) await win.loadURL(process.env.WEB_URL);
   else await win.loadFile(path.join(root, 'src/index.html'));
-  await win.webContents.executeJavaScript(`localStorage.clear(); localStorage.setItem('manhwadle.mode', ${JSON.stringify(JSON.stringify(mode))}); location.reload();`);
+  await win.webContents.executeJavaScript(`localStorage.clear(); localStorage.setItem('manhwadle.mode', ${JSON.stringify(JSON.stringify(mode))}); ${process.env.STATS ? `localStorage.setItem('manhwadle.stats', ${JSON.stringify(process.env.STATS)});` : ''} location.reload();`);
   await new Promise((r) => win.webContents.once('did-finish-load', r));
   // Le jeu se charge de façon asynchrone (boot.js) : on attend que la fenêtre de scénario existe.
   for (let i = 0; i < 100; i++) {
@@ -31,6 +31,8 @@ app.whenReady().then(async () => {
   }
   if (process.env.TYPE) await win.webContents.executeJavaScript(`(() => { const i = document.getElementById('search'); i.focus(); i.value = ${JSON.stringify(process.env.TYPE)}; i.dispatchEvent(new Event('input')); })()`);
   await new Promise((r) => setTimeout(r, 1500));
+  // EVAL : code exécuté dans la page juste avant la capture (ex. ouvrir un panneau).
+  if (process.env.EVAL) { await win.webContents.executeJavaScript(process.env.EVAL); await new Promise((r) => setTimeout(r, 600)); }
   if (process.env.SKIP) {
     await win.webContents.executeJavaScript(`document.getElementById('give-up').click()`);
     await new Promise((r) => setTimeout(r, 800));

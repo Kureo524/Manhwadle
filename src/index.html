@@ -54,6 +54,20 @@
 
     <footer class="stats system" id="stats"></footer>
     <button class="link quit" id="quit" title="Quitter (Ctrl+Q)" hidden>[Quitter]</button>
+    <section class="save system" id="save" hidden aria-label="Sauvegarde">
+      <label class="save__row">
+        <span class="save__label">Code de sauvegarde</span>
+        <input class="save__input" id="save-code" readonly>
+        <button class="link link--strong" id="save-copy">[Copier]</button>
+      </label>
+      <label class="save__row">
+        <span class="save__label">Restaurer</span>
+        <input class="save__input" id="save-input" placeholder="Colle un code MWD1-…" spellcheck="false" autocomplete="off">
+        <button class="link link--strong" id="save-restore">[Restaurer]</button>
+      </label>
+      <p class="save__msg" id="save-msg"></p>
+      <p class="save__note">La sauvegarde contient tes statistiques et ta série. Restaurer remplace celles de cet appareil.</p>
+    </section>
   </div>
 
   <div class="suggestions" id="suggestions" role="listbox" hidden></div>

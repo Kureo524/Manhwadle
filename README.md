@@ -49,6 +49,15 @@ La fenêtre de scénario affiche la catégorie, la difficulté, la condition de 
 limite, la récompense et l'échec. L'indice (une silhouette floutée) se débloque à 6 essais et
 devient presque net à 10.
 
+**Série** : chaque perso du jour trouvé prolonge ta série de jours consécutifs ; un jour sauté ou un
+échec la rompt. La fenêtre de scénario affiche la série en cours et ton record.
+
+**Partager** : en fin de partie, « Partager le résultat » copie une grille de carrés de couleur, sans
+spoiler, à coller où tu veux (Discord, réseaux…).
+
+**Sauvegarde** : la série et les statistiques restent dans ton navigateur. « [Sauvegarde] », en bas de
+page, donne un code à copier pour les retrouver sur un autre appareil ou dans l'appli.
+
 **Récompense** : 1 000 pièces au premier essai, puis 100 de moins par essai supplémentaire
 (100 au minimum). Les pièces s'additionnent dans tes statistiques.
 
