@@ -11,6 +11,11 @@ ipcRenderer.on('manhwadle:update', (_event, data) => {
   for (const cb of updateListeners) cb(lastUpdate);
 });
 
+// Mise à l'échelle : la page signale chaque changement de largeur (voir window-fit.js).
+const reportWidth = () => ipcRenderer.send('manhwadle:fit', window.innerWidth);
+window.addEventListener('resize', reportWidth);
+window.addEventListener('DOMContentLoaded', reportWidth);
+
 contextBridge.exposeInMainWorld('manhwadle', {
   ...ipcRenderer.sendSync('manhwadle:data'),
   quit: () => ipcRenderer.send('manhwadle:quit'),
