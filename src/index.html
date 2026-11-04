@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self'; script-src 'self'; font-src 'self'">
+  <title>Manhwadle</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="sky" aria-hidden="true"></canvas>
+
+  <div class="app">
+    <header class="topbar glass glass--light">
+      <div class="brand">
+        <div class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3.5h4.2c.5 0 .8.3.8.8v8.2c0-.5-.4-.9-.9-.9H3z"/><path d="M13 3.5H8.8c-.5 0-.8.3-.8.8v8.2c0-.5.4-.9.9-.9H13z"/>
+          </svg>
+        </div>
+        <span class="brand__name">Manhwadle</span>
+      </div>
+
+      <nav class="segmented glass glass--light" id="mode" aria-label="Mode de jeu">
+        <span class="segmented__pill" aria-hidden="true"></span>
+        <button class="segmented__item" data-mode="daily">Perso du jour</button>
+        <button class="segmented__item" data-mode="endless">Infini</button>
+      </nav>
+
+      <span class="topbar__spacer"></span>
+      <span class="topbar__system system" id="pool-info"></span>
+    </header>
+
+    <main class="main">
+      <section class="board">
+        <div class="guess-panel glass">
+          <div class="guess-row">
+            <div class="search">
+              <svg class="search__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+              <input class="input" id="search" type="text" autocomplete="off" spellcheck="false"
+                     placeholder="Tape le nom d'un personnage…" aria-label="Nom du personnage">
+            </div>
+            <button class="btn btn--danger" id="give-up" hidden>Abandonner</button>
+          </div>
+          <div class="filters" id="filters" hidden>
+            <span class="filters__label">Manhwa en jeu</span>
+          </div>
+        </div>
+
+        <div class="grid-panel glass">
+          <div class="grid-scroll">
+            <div class="grid" id="grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <section class="section glass" id="side-state"></section>
+
+        <section class="section glass">
+          <h2 class="section__title">Statistiques</h2>
+          <p class="section__desc" id="stats-desc"></p>
+          <div class="stats" id="stats"></div>
+        </section>
+
+        <section class="section glass">
+          <h2 class="section__title">Lecture des cases</h2>
+          <p class="section__desc">Chaque essai compare ton personnage au personnage mystère.</p>
+          <div class="legend">
+            <div class="legend__row"><span class="badge badge--ok"><span class="badge__dot"></span>Exact</span>Même valeur.</div>
+            <div class="legend__row"><span class="badge badge--partial"><span class="badge__dot"></span>Partiel</span>Au moins une valeur en commun, ou chapitre à 10 près.</div>
+            <div class="legend__row"><span class="badge badge--no"><span class="badge__dot"></span>Faux</span>Aucune valeur en commun.</div>
+            <div class="legend__row"><span class="badge badge--unknown"><span class="badge__dot"></span>Inconnu</span>Donnée encore à renseigner.</div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div class="suggestions" id="suggestions" role="listbox" hidden></div>
+
+  <script src="logic.js"></script>
+  <script src="sky.js"></script>
+  <script src="glass-light.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
