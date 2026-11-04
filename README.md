@@ -119,3 +119,26 @@ Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (néc
 - `main` : versions validées (protégée, PR obligatoire)
 - `dev` : intégration (protégée, PR obligatoire, branche par défaut)
 - `feature/<sujet>` : une branche par feature, PR vers `dev`
+
+## Crédits et droits
+
+> [Ce scénario est une œuvre de fan.]
+
+Manhwadle est un projet de fan **gratuit et non commercial**, sans lien avec les auteurs, illustrateurs
+ou éditeurs des œuvres citées.
+
+- **Œuvres, personnages et illustrations** : © leurs auteurs, illustrateurs et éditeurs respectifs
+  (Omniscient Reader's Viewpoint, The World After The Fall, The Beginning After The End,
+  Reincarnator, Star-Embracing Swordmaster).
+- **Portraits** : issus des wikis Fandom des œuvres ; la source de chaque image est listée dans
+  [`data/credits.json`](data/credits.json).
+- **Fiches des personnages** : établies d'après les wikis communautaires
+  ([ORV](https://omniscient-readers-viewpoint.fandom.com), [TWATF](https://the-world-after-the-fall.fandom.com),
+  [TBATE](https://tbate.fandom.com), [Reincarnator](https://reincarnator.fandom.com),
+  [SESM](https://starembracing-swordmaster.fandom.com)), dont les textes sont sous licence
+  [CC BY-SA](https://www.fandom.com/licensing).
+- **Polices** : Gothic A1, Barlow Condensed et IBM Plex Mono, sous licence SIL Open Font License 1.1
+  (textes des licences dans [`assets/fonts`](assets/fonts)).
+
+**Demande de retrait** : si vous êtes ayant droit et souhaitez qu'un contenu soit retiré,
+[ouvrez une issue](https://github.com/Kureo524/Manhwadle/issues/new) ; il sera retiré rapidement.
