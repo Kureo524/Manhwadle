@@ -129,7 +129,7 @@ img { display: block; }
 .search:focus-within { border-bottom-color: var(--accent); }
 .search__prompt { font-size: 15px; }
 .search__input {
-  flex: 1; border: 0; outline: none; background: transparent; padding: 4px 0;
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent; padding: 4px 0;
   font-size: 16px; user-select: text;
 }
 .search__input::placeholder { color: var(--text-3); }
@@ -247,6 +247,36 @@ img { display: block; }
 .suggestion__tag { flex: none; min-width: 64px; padding: 2px 8px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-text); font-family: var(--font-mono); font-size: 11px; text-align: center; }
 .suggestions__header { padding: 6px 8px 4px; font-size: 11px; }
 .suggestions__empty { padding: 8px 10px; color: var(--text-3); }
+
+/* ---------- Écrans étroits ----------
+   Appli de bureau : la fenêtre est mise à l'échelle par window-fit.js, la mise en page ne change pas.
+   Navigateur : la mise en page s'adapte, et le tableau défile horizontalement si besoin. */
+.guesses { overflow-x: auto; padding-bottom: 6px; }
+
+@media (max-width: 1100px) {
+  .top { padding: 14px 16px 8px; gap: 16px; flex-wrap: wrap; }
+  .stage { padding: 8px 16px 20px; }
+  .stats { padding: 8px 16px 14px; }
+  .grid { grid-template-columns: minmax(160px, 1.3fr) repeat(9, minmax(74px, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .brand__channel, .top__info { display: none; }
+  .tabs { margin-left: auto; }
+  .scenario { grid-template-columns: 1fr; gap: 12px; padding: 14px 16px; }
+  .scenario__rows { grid-template-columns: max-content 1fr; font-size: 12px; }
+  .scenario__side { flex-direction: row; justify-content: flex-start; min-width: 0; text-align: left; }
+  .scenario__note { max-width: none; }
+  .portrait--lg, .hint__locked { width: 72px; height: 72px; }
+  .hint__locked { font-size: 26px; }
+  .search__input { font-size: 15px; }
+  .suggestions__preview { display: none; }
+  .grid { min-width: 860px; grid-template-columns: 150px repeat(9, minmax(72px, 1fr)); }
+  /* La colonne du personnage reste visible pendant le défilement horizontal. */
+  .who, .grid__head:first-child { position: sticky; left: 0; z-index: 1; background: rgba(12, 12, 18, .92); }
+  .save__row { flex-wrap: wrap; }
+  .save__label { width: 100%; }
+}
 
 /* Barres de défilement */
 ::-webkit-scrollbar { width: 10px; height: 10px; }

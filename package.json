@@ -19,6 +19,7 @@
       "main.js",
       "preload.js",
       "data-loader.js",
+      "window-fit.js",
       "src/**",
       "data/**",
       "assets/**"
