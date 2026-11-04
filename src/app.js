@@ -448,6 +448,12 @@
     else if (mode === 'daily') renderScenario();
   }, 60000);
 
+  // Appli de bureau uniquement : la fenêtre n'a pas de barre de titre.
+  if (typeof window.manhwadle.quit === 'function') {
+    $('quit').hidden = false;
+    $('quit').addEventListener('click', () => window.manhwadle.quit());
+  }
+
   loadGame();
   render();
   document.fonts.ready.then(renderMode);

@@ -60,6 +60,8 @@ img { display: block; }
 .brand__name { font-weight: 700; font-size: 18px; }
 .brand__channel { font-size: 11px; color: var(--text-3); }
 .top__info { margin-left: auto; font-size: 11px; color: var(--text-3); }
+.link.top__quit { margin-left: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.link.top__quit:hover { color: var(--danger); background: rgba(224, 96, 106, .14); }
 
 .stage {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;

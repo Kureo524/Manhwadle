@@ -10,6 +10,7 @@ const root = path.join(__dirname, '..');
 app.whenReady().then(async () => {
   const data = require(path.join(root, 'data-loader.js')).loadGameData(root);
   ipcMain.on('manhwadle:data', (event) => { event.returnValue = data; });
+  ipcMain.on('manhwadle:quit', () => console.log('[quit] demande de fermeture reçue'));
   setTimeout(() => { console.error('délai dépassé'); app.exit(1); }, 30000);
   const win = new BrowserWindow({
     width: 1360, height: 860, show: false, backgroundColor: '#0c0c12',
