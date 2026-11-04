@@ -8,8 +8,9 @@
 :root {
   color-scheme: dark;
   --bg: #0c0c12;
-  --glass: rgba(30, 30, 40, .42);
-  --surface: rgba(22, 22, 30, .62);
+  --veil: rgba(12, 12, 18, .34); /* voile sur le fond d'écran, garde le texte lisible */
+  --glass: rgba(30, 30, 40, .30);
+  --surface: rgba(22, 22, 30, .44);
   --surface-raised: rgba(232, 238, 250, .06);
   --hover: rgba(232, 238, 250, .06);
   --border: rgba(232, 238, 250, .09);
@@ -39,9 +40,10 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
+html { background: transparent; }
 body {
   margin: 0; padding: 12px; overflow: hidden;
-  background: var(--bg); color: var(--text);
+  background: var(--veil); color: var(--text);
   font: 12px/1.5 var(--font);
   -webkit-font-smoothing: antialiased;
   user-select: none;
@@ -194,7 +196,7 @@ img { display: block; }
 }
 .grid__head {
   position: sticky; top: 0; z-index: 2; padding: 8px 4px 6px; color: var(--text-2); font-size: 11px; text-align: center;
-  background: rgba(22,22,30,.96);
+  background: rgba(22,22,30,.86);
 }
 .grid__head:first-child { text-align: left; padding-left: 8px; }
 .grid__empty { grid-column: 1 / -1; padding: 48px 0; text-align: center; }

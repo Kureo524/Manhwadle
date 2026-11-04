@@ -7,7 +7,9 @@ function createWindow() {
     height: 860,
     minWidth: 1040,
     minHeight: 640,
-    backgroundColor: '#0c0c12',
+    // Fenêtre transparente : le compositeur (Hyprland) floute le fond d'écran derrière.
+    transparent: true,
+    backgroundColor: '#00000000',
     title: 'Manhwadle',
     autoHideMenuBar: true,
     show: false,

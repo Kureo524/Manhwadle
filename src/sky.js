@@ -25,12 +25,11 @@
     off.width = W * dpr; off.height = H * dpr;
     const c = off.getContext('2d');
     c.scale(dpr, dpr);
-    c.fillStyle = 'rgb(12,12,18)';
-    c.fillRect(0, 0, W, H);
+    // Pas de fond opaque : le fond d'écran reste visible à travers la fenêtre.
 
     // Trois lumières froides diffuses, décroissance linéaire.
     const diag = Math.hypot(W, H);
-    for (const [col, x, y, r, a] of [['#8aa8e0', .12, .18, .42, .31], ['#a597c0', .88, .12, .36, .25], ['#9ebd85', .60, 1.0, .42, .19]]) {
+    for (const [col, x, y, r, a] of [['#8aa8e0', .12, .18, .42, .16], ['#a597c0', .88, .12, .36, .13], ['#9ebd85', .60, 1.0, .42, .10]]) {
       const g = c.createRadialGradient(x * W, y * H, 0, x * W, y * H, r * diag);
       g.addColorStop(0, rgba(hex(col), a));
       g.addColorStop(1, rgba(hex(col), 0));
@@ -81,6 +80,7 @@
   function draw(now) {
     const t = now / 1000;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(staticLayer, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
