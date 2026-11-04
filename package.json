@@ -21,6 +21,7 @@
       "data-loader.js",
       "window-fit.js",
       "share-image.js",
+      "updater.js",
       "src/**",
       "data/**",
       "assets/**"
@@ -52,7 +53,14 @@
       "enableNodeCliInspectArguments": false,
       "onlyLoadAppFromAsar": true,
       "enableCookieEncryption": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Kureo524",
+        "repo": "Manhwadle"
+      }
+    ]
   },
   "devDependencies": {
     "electron": "^45.2.2",
@@ -60,5 +68,8 @@
   },
   "allowScripts": {
     "electron@45.2.2": true
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }

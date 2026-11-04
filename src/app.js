@@ -526,6 +526,23 @@
     else if (mode === 'daily') renderScenario();
   }, 60000);
 
+  // Mises à jour (appli de bureau) : message système quand une version est téléchargée / prête.
+  if (typeof window.manhwadle.onUpdate === 'function') {
+    window.manhwadle.onUpdate(({ state, version }) => {
+      const box = $('update');
+      const v = version ? ` v${version}` : '';
+      box.replaceChildren();
+      if (state === 'downloading') box.append(el('span', '', `[Une mise à jour${v} est en cours de téléchargement.]`));
+      else if (state === 'ready') {
+        box.append(el('span', '', `[La mise à jour${v} est prête. Elle s'installera à la fermeture.]`));
+        const now = el('button', 'link link--strong', '[Redémarrer maintenant]');
+        now.addEventListener('click', () => window.manhwadle.installUpdate());
+        box.append(now);
+      } else return;
+      box.hidden = false;
+    });
+  }
+
   // Appli de bureau uniquement : la fenêtre n'a pas de barre de titre.
   if (typeof window.manhwadle.quit === 'function') {
     $('quit').hidden = false;
