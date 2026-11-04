@@ -52,3 +52,17 @@ test('données : ids uniques, manhwa connu, champs complets', () => {
     assert.ok(c.chapter === null || Number.isInteger(c.chapter), `${c.id}.chapter`);
   }
 });
+
+test('portraits : aucun doublon (erreur fréquente des wikis)', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const crypto = require('node:crypto');
+  const seen = new Map();
+  for (const c of chars) {
+    const file = path.join(__dirname, '..', 'assets/characters', c.manhwa, `${c.id}.webp`);
+    if (!fs.existsSync(file)) continue;
+    const h = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex');
+    assert.ok(!seen.has(h), `${c.id} a le même portrait que ${seen.get(h)}`);
+    seen.set(h, c.id);
+  }
+});
