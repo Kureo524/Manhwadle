@@ -309,10 +309,11 @@
     box.replaceChildren();
     const lines = game.guesses.map((id, i) => reaction(id, i));
     const live = dailyStreak();
-    if (mode === 'daily' && !game.done && !game.guesses.length && live) {
+    const playedElsewhere = mode === 'daily' && !game.done && profile?.lastDay && profile.lastDay >= game.day;
+    if (mode === 'daily' && !game.done && !game.guesses.length && live && !playedElsewhere) {
       lines.push([`Votre série de ${live} jour${live > 1 ? 's' : ''} est en jeu. Le scénario se termine à minuit.`, null]);
     }
-    if (mode === 'daily' && !game.done && profile?.lastDay && profile.lastDay >= game.day) {
+    if (playedElsewhere) {
       lines.push(['Ce scénario a déjà été joué depuis un autre appareil : cette partie ne changera pas votre série.', null]);
     }
     if (game.done && !game.won) lines.push(['Les constellations sont déçues.', null]);
