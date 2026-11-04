@@ -114,3 +114,16 @@ test('sauvegarde : aller-retour, accents, code modifié refusé', () => {
   const bad = L.encodeSave({ daily: { played: -1 }, endless: {} });
   assert.throws(() => L.decodeSave(bad), /modifié/);
 });
+
+test('mise à l\'échelle de la fenêtre : complète, puis compacte quand trop étroite', () => {
+  const { zoomFor, BASE_WIDTH, MIN_ZOOM } = require('../window-fit.js');
+  assert.equal(zoomFor(1858), 1);
+  assert.equal(zoomFor(BASE_WIDTH), 1);
+  assert.ok(Math.abs(zoomFor(930) - 930 / BASE_WIDTH) < 1e-9);
+  assert.equal(zoomFor(Math.ceil(BASE_WIDTH * MIN_ZOOM)) >= MIN_ZOOM, true);
+  // Trop étroite : mise en page compacte (< 760 px CSS), texte jamais sous 70 %.
+  for (const w of [400, 458, 600, 700, 800]) {
+    const z = zoomFor(w);
+    assert.ok(z >= 0.7 && w / z < 760, `${w} px → zoom ${z}`);
+  }
+});

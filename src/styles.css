@@ -281,7 +281,9 @@ img { display: block; }
 @media (max-width: 1100px) {
   .top { padding: 14px 16px 8px; gap: 16px; flex-wrap: wrap; }
   .stage { padding: 8px 16px 20px; }
-  .stats { padding: 8px 16px 14px; }
+  /* Place réservée à droite pour [Quitter] (appli), qui ne chevauche plus les statistiques. */
+  .stats { padding: 8px 88px 14px 16px; }
+  .link.quit { right: 12px; }
   .grid { grid-template-columns: minmax(160px, 1.3fr) repeat(9, minmax(74px, 1fr)); }
 }
 
