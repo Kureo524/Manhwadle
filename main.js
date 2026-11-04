@@ -42,15 +42,37 @@ function start() {
   app.on('window-all-closed', () => app.quit());
 }
 
+// Apparence de la fenêtre selon le système.
+// - Linux (Hyprland) : fenêtre transparente ; le compositeur floute le fond d'écran, gère les bords,
+//   la taille et la position.
+// - Windows et macOS : une fenêtre transparente y perd son cadre (ni redimensionnable, ni déplaçable,
+//   coins carrés). On garde le cadre natif, avec un effet de flou du système (Mica sous
+//   Windows 11, vibrancy sous macOS) et une barre de titre intégrée à l'en-tête du jeu.
+const WINDOW_LOOK = {
+  linux: { transparent: true, backgroundColor: '#00000000' },
+  win32: {
+    backgroundColor: '#00000000',
+    backgroundMaterial: 'mica',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#00000000', symbolColor: '#a3a6b6', height: 44 },
+  },
+  darwin: {
+    backgroundColor: '#00000000',
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: true,
+    trafficLightPosition: { x: 16, y: 16 },
+  },
+};
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1360,
     height: 860,
     minWidth: 720,
     minHeight: 480,
-    // Fenêtre transparente : le compositeur (Hyprland) floute le fond d'écran derrière.
-    transparent: true,
-    backgroundColor: '#00000000',
+    ...(WINDOW_LOOK[process.platform] ?? WINDOW_LOOK.linux),
     title: 'Manhwadle',
     autoHideMenuBar: true,
     show: false,

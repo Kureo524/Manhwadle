@@ -6,6 +6,12 @@
   'use strict';
   const SCRIPTS = ['logic.js', 'sky.js', 'glass-light.js', 'online.js', 'app.js'];
 
+  // Windows / macOS : cadre natif et barre de titre intégrée (voir main.js).
+  const platform = window.manhwadle?.platform;
+  if (platform === 'win32' || platform === 'darwin') {
+    document.documentElement.classList.add('has-titlebar', platform === 'win32' ? 'is-windows' : 'is-mac');
+  }
+
   if (!window.manhwadle) {
     document.documentElement.classList.add('is-web');
     const get = (p) => fetch(p).then((r) => {
