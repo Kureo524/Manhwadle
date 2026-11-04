@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self'; script-src 'self'; font-src 'self'">
+  <title>Manhwadle</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="sky" aria-hidden="true"></canvas>
+
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <span class="brand__name">Manhwadle</span>
+        <span class="brand__channel system">Star Stream · canal #MW-0107</span>
+      </div>
+      <nav class="tabs" id="mode" aria-label="Mode de jeu">
+        <span class="tabs__line" aria-hidden="true"></span>
+        <button class="tabs__item" data-mode="daily">Perso du jour</button>
+        <button class="tabs__item" data-mode="endless">Infini</button>
+      </nav>
+      <span class="top__info system" id="pool-info"></span>
+    </header>
+
+    <main class="stage">
+      <section class="scenario glass" id="scenario" aria-live="polite"></section>
+
+      <div class="ask">
+        <div class="search">
+          <span class="search__prompt system" aria-hidden="true">&gt;</span>
+          <input class="search__input" id="search" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Nomme une incarnation…" aria-label="Nom du personnage">
+          <button class="link link--danger" id="give-up" hidden>Abandonner</button>
+        </div>
+        <div class="ask__meta">
+          <div class="filters" id="filters" hidden></div>
+          <div class="legend" aria-label="Lecture des cases">
+            <span class="legend__item"><i class="dot dot--ok"></i>exact</span>
+            <span class="legend__item"><i class="dot dot--partial"></i>partiel · chapitre à 10 près</span>
+            <span class="legend__item"><i class="dot dot--no"></i>faux</span>
+            <span class="legend__item"><i class="dot dot--unknown"></i>inconnu</span>
+            <span class="legend__item legend__item--tip system">@ORV liste un manhwa</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feed system" id="feed" aria-live="polite"></div>
+
+      <section class="guesses">
+        <div class="grid" id="grid"></div>
+      </section>
+    </main>
+
+    <footer class="stats system" id="stats"></footer>
+  </div>
+
+  <div class="suggestions" id="suggestions" role="listbox" hidden></div>
+
+  <script src="logic.js"></script>
+  <script src="sky.js"></script>
+  <script src="glass-light.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

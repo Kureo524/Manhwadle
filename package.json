@@ -1,0 +1,36 @@
+{
+  "name": "manhwadle",
+  "productName": "Manhwadle",
+  "version": "0.1.0",
+  "description": "Jeu de déduction de personnages de manhwa",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/",
+    "dist": "electron-builder --linux AppImage",
+    "portraits:galerie": "node tools/portraits.mjs galerie",
+    "portraits:import": "node tools/portraits.mjs import"
+  },
+  "build": {
+    "appId": "dev.kureo.manhwadle",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**",
+      "data/**",
+      "assets/**"
+    ],
+    "linux": {
+      "target": "AppImage",
+      "category": "Game"
+    }
+  },
+  "devDependencies": {
+    "electron": "^38.8.6",
+    "electron-builder": "^26.18.0"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true
+  }
+}
