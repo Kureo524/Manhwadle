@@ -55,6 +55,10 @@ devient presque net à 10.
 **Partager** : en fin de partie, « Partager le résultat » copie dans le presse-papiers une image de la
 partie (fenêtre de scénario et essais) dans l'appli de bureau, ou une grille de carrés de couleur sur le site.
 
+**Langues** : français et anglais, choisis d'après la langue du système ou du navigateur (anglais par
+défaut). « FR · EN », en bas de page, change de langue. Les noms des personnages et des manhwa ne sont
+pas traduits.
+
 **Compte** : l'onglet « Compte » connecte le jeu à Discord. La série du perso du jour est alors vérifiée
 par le serveur, retrouvée sur le site comme dans l'appli, et inscrite à l'onglet « Classement ». Sans compte,
 tout reste sur l'appareil.

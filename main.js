@@ -129,7 +129,7 @@ function discordLogin(parent) {
     const win = new BrowserWindow({
       ...size,
       ...(at ? { x: Math.round(at.x + (at.width - size.width) / 2), y: Math.round(at.y + Math.max(0, (at.height - size.height) / 2)) } : {}),
-      title: 'Connexion Discord · Manhwadle',
+      title: 'Discord · Manhwadle',
       autoHideMenuBar: true,
       backgroundColor: '#1e1f22',
       webPreferences: { partition: 'persist:discord', contextIsolation: true, sandbox: true, nodeIntegration: false },

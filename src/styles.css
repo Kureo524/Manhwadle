@@ -244,6 +244,9 @@ html.has-titlebar .link.quit { display: none; }
 .stats b { font-family: var(--font-num); font-weight: 600; font-size: 15px; color: var(--text); margin-left: 4px; }
 
 .stats .link { font-size: 11px; }
+.lang { display: inline-flex; align-items: center; gap: 2px; }
+.lang__item { padding: 0 3px; color: var(--text-3); font-family: var(--font-mono); }
+.lang__item.is-active { color: var(--text); }
 
 /* ---------- Compte (en-tête) ---------- */
 .account { display: flex; align-items: center; font-size: 11px; }
