@@ -106,7 +106,7 @@
     const p = el('div', `portrait ${size ? `portrait--${size}` : ''}`);
     if (c.image) {
       const img = el('img');
-      img.src = c.image; img.alt = ''; img.loading = size === 'lg' ? 'eager' : 'lazy'; img.draggable = false;
+      img.src = c.image; img.alt = ''; img.loading = size === 'lg' || size === 'xl' ? 'eager' : 'lazy'; img.draggable = false;
       p.append(img);
     } else p.append(el('span', 'portrait__mono', initials(c.name)));
     return p;
@@ -368,15 +368,18 @@
     }
     active = Math.min(active, Math.max(suggestionList.length - 1, 0));
     box.replaceChildren();
-    if (header) box.append(el('div', 'suggestions__header system', `[${header}]`));
-    if (!suggestionList.length) box.append(el('div', 'suggestions__empty', q.choices ? 'Aucun manhwa ne correspond.' : 'Aucun personnage ne correspond.'));
+    const list = el('div', 'suggestions__list');
+    box.append(list);
+    if (header) list.append(el('div', 'suggestions__header system', `[${header}]`));
+    if (!suggestionList.length) list.append(el('div', 'suggestions__empty', q.choices ? 'Aucun manhwa ne correspond.' : 'Aucun personnage ne correspond.'));
     suggestionList.forEach((item, i) => {
       const b = el('button', `suggestion ${i === active ? 'is-active' : ''}`);
       b.setAttribute('role', 'option');
       if (item.char) {
         const c = item.char;
-        b.append(portrait(c, 'sm'), el('span', 'suggestion__name', c.name));
-        if (!q.manhwa) b.append(el('span', 'suggestion__meta', manhwaById.get(c.manhwa).short));
+        const txt = el('span', 'suggestion__text');
+        txt.append(el('span', 'suggestion__name', c.name), el('span', 'suggestion__sub', manhwaById.get(c.manhwa).title));
+        b.append(portrait(c, 'md'), txt);
       } else {
         const m = item.manhwa;
         const left = pool.filter((c) => c.manhwa === m.id && !guessed.has(c.id)).length;
@@ -384,11 +387,23 @@
       }
       b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(item); });
       b.addEventListener('mouseenter', () => { active = i; highlight(); });
-      box.append(b);
+      list.append(b);
     });
+    // Grand aperçu du personnage surligné, à droite de la liste.
+    if (suggestionList.some((x) => x.char)) box.append(el('div', 'suggestions__preview'));
+    renderPreview();
     const r = input.getBoundingClientRect();
     Object.assign(box.style, { left: `${r.left}px`, top: `${r.bottom + 6}px`, width: `${r.width}px` });
     box.hidden = false;
+  }
+
+  function renderPreview() {
+    const box = $('suggestions').querySelector('.suggestions__preview');
+    const c = suggestionList[active]?.char;
+    if (!box) return;
+    box.replaceChildren();
+    if (!c) return;
+    box.append(portrait(c, 'xl'), el('div', 'preview__name', c.name), el('div', 'preview__manhwa', manhwaById.get(c.manhwa).title));
   }
 
   function highlight() {
@@ -396,6 +411,7 @@
       b.classList.toggle('is-active', i === active);
       if (i === active) b.scrollIntoView({ block: 'nearest' });
     });
+    renderPreview();
   }
 
   // ---------- Événements ----------
