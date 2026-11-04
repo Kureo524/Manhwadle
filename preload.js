@@ -18,6 +18,7 @@ window.addEventListener('DOMContentLoaded', reportWidth);
 
 contextBridge.exposeInMainWorld('manhwadle', {
   ...ipcRenderer.sendSync('manhwadle:data'),
+  platform: process.platform,
   quit: () => ipcRenderer.send('manhwadle:quit'),
   shareImage: () => ipcRenderer.invoke('manhwadle:share-image'),
   login: () => ipcRenderer.invoke('manhwadle:login'),

@@ -37,6 +37,8 @@ html, body { height: 100%; }
 html { background: transparent; }
 /* Navigateur : pas de fond d'écran derrière la page, on pose le fond nuit de la DA. */
 html.is-web { background: #0c0c12; }
+/* Windows / macOS : le flou du système est plus léger que celui d'Hyprland, le voile est plus opaque. */
+html.has-titlebar { --veil: rgba(10, 11, 18, .68); }
 body {
   margin: 0; overflow: hidden;
   background: var(--veil); color: var(--text);
@@ -60,6 +62,16 @@ img { display: block; }
 .brand__name { font-weight: 700; font-size: 18px; }
 .brand__channel { font-size: 11px; color: var(--text-3); }
 .top__info { margin-left: auto; font-size: 11px; color: var(--text-3); }
+/* Barre de titre intégrée (Windows / macOS) : l'en-tête sert à déplacer la fenêtre, et laisse
+   la place aux boutons du système (à droite sous Windows, à gauche sous macOS). */
+html.has-titlebar .top {
+  -webkit-app-region: drag;
+  padding-left: max(32px, calc(env(titlebar-area-x, 0px) + 16px));
+  padding-right: max(32px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 16px));
+}
+html.has-titlebar .top button, html.has-titlebar .top input { -webkit-app-region: no-drag; }
+/* Le système fournit déjà le bouton de fermeture. */
+html.has-titlebar .link.quit { display: none; }
 
 .stage {
   flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
@@ -324,6 +336,10 @@ img { display: block; }
 
 @media (max-width: 1100px) {
   .top { padding: 14px 16px 8px; gap: 16px; flex-wrap: wrap; }
+  html.has-titlebar .top {
+    padding-left: max(16px, calc(env(titlebar-area-x, 0px) + 16px));
+    padding-right: max(16px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 16px));
+  }
   .stage { padding: 8px 16px 20px; }
   /* Place réservée à droite pour [Quitter] (appli), qui ne chevauche plus les statistiques. */
   .stats { padding: 8px 88px 14px 16px; }
