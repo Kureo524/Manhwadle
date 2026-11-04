@@ -55,8 +55,9 @@ devient presque net à 10.
 **Partager** : en fin de partie, « Partager le résultat » copie dans le presse-papiers une image de la
 partie (fenêtre de scénario et essais) dans l'appli de bureau, ou une grille de carrés de couleur sur le site.
 
-**Sauvegarde** : la série et les statistiques restent dans ton navigateur. « [Sauvegarde] », en bas de
-page, donne un code à copier pour les retrouver sur un autre appareil ou dans l'appli.
+**Compte** : l'onglet « Compte » connecte le jeu à Discord. La série du perso du jour est alors vérifiée
+par le serveur, retrouvée sur le site comme dans l'appli, et inscrite à l'onglet « Classement ». Sans compte,
+tout reste sur l'appareil.
 
 **Récompense** : 1 000 pièces au premier essai, puis 100 de moins par essai supplémentaire
 (100 au minimum). Les pièces s'additionnent dans tes statistiques.
@@ -118,6 +119,7 @@ Le jeu l'interprète librement, dans l'ambiance d'ORV :
 | **Données** | Pipeline depuis les API MediaWiki des wikis Fandom, galerie + import des portraits (ImageMagick → WebP 320×320), crédits par image |
 | **UI / DA** | Direction artistique originale « Verre d'encre », réinterprétée façon fenêtres système d'ORV : fenêtre transparente sous Hyprland, ciel de constellations animé en canvas, reflet du curseur, réactions des constellations |
 | **Application** | Electron 45 en bac à sable (données via IPC, navigation bloquée, permissions refusées, fuses), une seule page partagée avec la version web |
+| **Serveur** | API serverless Cloudflare Workers + D1 (SQLite) : connexion Discord OAuth2, sessions par jeton dont seul le SHA-256 est stocké, partie du jour **recalculée côté serveur** à partir de la même `src/logic.js` (impossible de tricher sur sa série), classement, suppression du compte |
 | **CI / livraison** | GitHub Actions : builds natifs Windows / macOS / Linux sur chaque PR, publication des binaires et de leurs empreintes SHA-256 sur tag, déploiement GitHub Pages ; actions épinglées par SHA |
 | **Méthode** | Branches par feature, PR vers `dev`, `main` pour les versions validées, commits atomiques |
 
@@ -140,6 +142,9 @@ Pour publier une mise à jour : augmenter `version` dans `package.json`, fusionn
 le tag `vX.Y.Z` : la CI construit et publie les binaires et leurs fichiers de mise à jour.
 
 Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (nécessite `fuse2`).
+
+**Serveur** : l'API de connexion et de classement vit dans `server/` (`npm test` pour sa logique,
+`npx wrangler deploy` pour la publier).
 
 ## Commandes
 

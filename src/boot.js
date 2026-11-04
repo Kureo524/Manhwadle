@@ -4,7 +4,7 @@
 // Puis on charge le jeu, script par script, dans l'ordre.
 (async function () {
   'use strict';
-  const SCRIPTS = ['logic.js', 'sky.js', 'glass-light.js', 'app.js'];
+  const SCRIPTS = ['logic.js', 'sky.js', 'glass-light.js', 'online.js', 'app.js'];
 
   if (!window.manhwadle) {
     document.documentElement.classList.add('is-web');
