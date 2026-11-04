@@ -118,6 +118,7 @@ Le jeu l'interprète librement, dans l'ambiance d'ORV :
 | **Données** | Pipeline depuis les API MediaWiki des wikis Fandom, galerie + import des portraits (ImageMagick → WebP 320×320), crédits par image |
 | **UI / DA** | Direction artistique originale « Verre d'encre », réinterprétée façon fenêtres système d'ORV : fenêtre transparente sous Hyprland, ciel de constellations animé en canvas, reflet du curseur, réactions des constellations |
 | **Application** | Electron 45 en bac à sable (données via IPC, navigation bloquée, permissions refusées, fuses), une seule page partagée avec la version web |
+| **Serveur** | API serverless Cloudflare Workers + D1 (SQLite) : connexion Discord OAuth2, sessions par jeton dont seul le SHA-256 est stocké, partie du jour **recalculée côté serveur** à partir de la même `src/logic.js` (impossible de tricher sur sa série), classement, suppression du compte |
 | **CI / livraison** | GitHub Actions : builds natifs Windows / macOS / Linux sur chaque PR, publication des binaires et de leurs empreintes SHA-256 sur tag, déploiement GitHub Pages ; actions épinglées par SHA |
 | **Méthode** | Branches par feature, PR vers `dev`, `main` pour les versions validées, commits atomiques |
 
@@ -140,6 +141,11 @@ Pour publier une mise à jour : augmenter `version` dans `package.json`, fusionn
 le tag `vX.Y.Z` : la CI construit et publie les binaires et leurs fichiers de mise à jour.
 
 Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (nécessite `fuse2`).
+
+**Compte en ligne (facultatif)** : l'onglet « Classement » propose de se connecter avec Discord. La série du
+perso du jour est alors vérifiée par le serveur, synchronisée entre le site et l'appli, et inscrite au classement.
+Sans compte, tout reste sur l'appareil. L'API vit dans `server/` (`npm test` pour sa logique,
+`npx wrangler deploy` pour la publier).
 
 ## Commandes
 

@@ -249,6 +249,65 @@ img { display: block; }
 .save__note { margin: 0; color: var(--text-3); font-family: var(--font); font-size: 11px; }
 .stats .link { font-size: 11px; }
 
+/* ---------- Compte (en-tête) ---------- */
+.account { display: flex; align-items: center; font-size: 11px; }
+.top__info + .account { margin-left: 4px; }
+.account__me {
+  display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--text);
+  font-family: var(--font); font-size: 12px; transition: border-color .15s, background-color .15s;
+}
+.account__me:hover { border-color: var(--system-line); background: var(--accent-soft); }
+.account__name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account__wait { color: var(--text-3); }
+.avatar {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; overflow: hidden;
+  border-radius: 50%; background: var(--accent-soft); color: var(--accent-text);
+  font-family: var(--font-num); font-weight: 600;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar--sm { width: 24px; height: 24px; font-size: 11px; }
+.avatar--md { width: 40px; height: 40px; font-size: 16px; }
+
+/* ---------- Classement ---------- */
+/* Vue « Classement » : seuls le classement (et un éventuel message de mise à jour) restent dans la scène. */
+.app.is-ranking .stage > :not(.ranking, .update) { display: none; }
+.ranking { display: flex; flex-direction: column; gap: 14px; max-width: 980px !important; }
+.ranking__panel {
+  padding: 18px 22px; border-radius: 14px;
+  border: 1px solid var(--system-line); border-top-color: var(--system-line-strong); border-left-color: var(--system-line-strong);
+  background: var(--system-bg);
+}
+.ranking__intro { margin: 0 0 14px; color: var(--text-2); font-size: 12px; }
+.board { display: flex; flex-direction: column; }
+.board__row {
+  display: grid; grid-template-columns: 44px minmax(180px, 1fr) repeat(4, 96px); align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 8px; border-bottom: 1px solid var(--line);
+}
+.board__row:last-child { border-bottom: 0; }
+.board__row--head { border-bottom-color: var(--line-strong); padding-top: 0; }
+.board__row.is-me { background: var(--accent-soft); border-bottom-color: transparent; }
+.board__head { color: var(--text-3); font-size: 11px; text-align: center; }
+.board__head:nth-child(2) { text-align: left; }
+.board__rank { font-family: var(--font-num); font-weight: 600; font-size: 18px; color: var(--text-2); text-align: center; }
+.board__rank--1 { color: var(--warning); }
+.board__rank--2 { color: var(--text); }
+.board__rank--3 { color: #d39a6a; }
+.board__who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.board__name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board__num { font-family: var(--font-num); font-weight: 600; font-size: 17px; text-align: center; }
+.board__empty { margin: 8px 0; color: var(--text-3); font-size: 12px; }
+
+.account-panel {
+  padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; font-size: 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--system-bg);
+}
+.account-panel__who { display: flex; align-items: center; gap: 12px; }
+.account-panel__text { margin: 0; color: var(--text-2); }
+.account-panel__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-panel__msg { margin: 0; }
+.account-panel__note { margin: 0; color: var(--text-3); font-size: 11px; }
+
 /* ---------- Suggestions ---------- */
 .suggestions {
   position: fixed; z-index: 50; display: flex; gap: 4px;
@@ -306,6 +365,11 @@ img { display: block; }
   .who, .grid__head:first-child { position: sticky; left: 0; z-index: 1; background: rgba(12, 12, 18, .92); }
   .save__row { flex-wrap: wrap; }
   .save__label { width: 100%; }
+  .account__name { display: none; }
+  .account__me { padding: 3px; }
+  .board__row { grid-template-columns: 30px minmax(120px, 1fr) repeat(2, 56px); }
+  .board__row > :nth-child(5), .board__row > :nth-child(6) { display: none; }
+  .ranking__panel { padding: 14px 14px; }
 }
 
 /* ---------- Mode capture (partage en image, appli de bureau) ----------
