@@ -10,7 +10,8 @@
     "test": "node --test test/logic.test.js",
     "dist": "electron-builder --linux AppImage",
     "portraits:galerie": "node tools/portraits.mjs galerie",
-    "portraits:import": "node tools/portraits.mjs import"
+    "portraits:import": "node tools/portraits.mjs import",
+    "site": "node tools/build-site.mjs"
   },
   "build": {
     "appId": "dev.kureo.manhwadle",
