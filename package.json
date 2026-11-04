@@ -24,7 +24,24 @@
     "linux": {
       "target": "AppImage",
       "category": "Game"
-    }
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.games"
+    },
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
   },
   "devDependencies": {
     "electron": "^38.8.6",

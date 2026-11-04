@@ -1,0 +1,95 @@
+# Construit Manhwadle pour Linux, Windows et macOS sur des machines natives.
+# - Pull request : build + tests seulement (rien n'est publié).
+# - Tag v* poussé, ou lancement manuel avec un tag : build puis ajout des binaires à la release.
+name: Release
+
+on:
+  pull_request:
+    paths: ['.github/workflows/release.yml', 'package.json', 'package-lock.json', 'main.js', 'preload.js', 'src/**']
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag à construire et publier (ex. v0.1)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-latest
+            args: --linux AppImage
+          - name: Windows
+            os: windows-latest
+            args: --win nsis zip --x64
+          - name: macOS
+            os: macos-latest
+            # Pas de certificat Apple : signature ad hoc, indispensable pour lancer l'app sur Apple Silicon.
+            args: --mac dmg --x64 --arm64 -c.mac.identity=-
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Build
+        shell: bash
+        run: npx electron-builder ${{ matrix.args }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: manhwadle-${{ matrix.name }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            dist/*.AppImage
+            dist/*.exe
+            dist/*.zip
+            dist/*.dmg
+
+  publish:
+    name: Publier dans la release
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Ajouter les binaires à la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          ls -la out
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          gh release upload "$TAG" out/* --clobber
