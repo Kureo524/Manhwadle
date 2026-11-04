@@ -1,5 +1,18 @@
 # Manhwadle
 
+[![Jouer dans le navigateur](https://img.shields.io/badge/jouer-dans_le_navigateur-8aa8e0)](https://kureo524.github.io/Manhwadle/)
+[![Release](https://img.shields.io/github/v/release/Kureo524/Manhwadle?label=release&color=a597c0)](https://github.com/Kureo524/Manhwadle/releases/latest)
+[![Builds](https://github.com/Kureo524/Manhwadle/actions/workflows/release.yml/badge.svg)](https://github.com/Kureo524/Manhwadle/actions/workflows/release.yml)
+
+**▶ [Jouer dans le navigateur](https://kureo524.github.io/Manhwadle/)** ·
+**[Télécharger](https://github.com/Kureo524/Manhwadle/releases/latest)** (Windows, macOS, Linux)
+
+> **In English —** Manhwadle is a daily character-guessing game (Wordle-like) set in five Korean web novels / webtoons.
+> Each guess is compared to the mystery character across 9 categories. It ships as a desktop app (Electron, sandboxed,
+> built for Windows, macOS and Linux by GitHub Actions) and as a browser version on GitHub Pages. The UI is an original
+> art direction inspired by the "system window" look of *Omniscient Reader's Viewpoint*. Personal fan project by
+> [Kilian Monnier](https://github.com/Kureo524), game developer (Unity / Unreal).
+
 > [Un nouveau scénario est arrivé.]
 >
 > **Condition de réussite :** identifier l'incarnation mystère.
@@ -87,6 +100,20 @@ Le jeu l'interprète librement, dans l'ambiance d'ORV :
 
 ---
 
+## Ce que j'ai construit
+
+| Domaine | Réalisation |
+|---|---|
+| **Gameplay** | Boucle de jeu « -dle » complète : deux modes, comparaison sur 9 catégories (exact / partiel / proximité de chapitre), indice progressif, statistiques, économie de pièces |
+| **Logique testée** | Module pur sans DOM (`src/logic.js`) : comparaison, tirage du jour déterministe (hachage FNV-1a), recherche avec tags `@` ; tests `node:test` qui valident aussi les 107 fiches et l'absence de portraits en double |
+| **Données** | Pipeline depuis les API MediaWiki des wikis Fandom, galerie + import des portraits (ImageMagick → WebP 320×320), crédits par image |
+| **UI / DA** | Direction artistique originale « Verre d'encre », réinterprétée façon fenêtres système d'ORV : fenêtre transparente sous Hyprland, ciel de constellations animé en canvas, reflet du curseur, réactions des constellations |
+| **Application** | Electron 45 en bac à sable (données via IPC, navigation bloquée, permissions refusées, fuses), une seule page partagée avec la version web |
+| **CI / livraison** | GitHub Actions : builds natifs Windows / macOS / Linux sur chaque PR, publication des binaires et de leurs empreintes SHA-256 sur tag, déploiement GitHub Pages ; actions épinglées par SHA |
+| **Méthode** | Branches par feature, PR vers `dev`, `main` pour les versions validées, commits atomiques |
+
+---
+
 ## Lancer le jeu
 
 ```bash
@@ -102,6 +129,7 @@ Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (néc
 | Commande | Rôle |
 |---|---|
 | `npm start` | lance le jeu |
+| `npm run site` | assemble la version navigateur dans `site/` |
 | `npm test` | logique du jeu, validation des données, portraits sans doublon |
 | `npm run dist` | construit l'AppImage |
 | `npm run portraits:galerie` | page des portraits manquants, à enregistrer depuis le navigateur |
