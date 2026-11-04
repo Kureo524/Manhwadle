@@ -257,11 +257,7 @@ img { display: block; }
 /* Vues « Classement » et « Compte » : elles remplacent la partie dans la scène (sauf un message de mise à jour). */
 .app.is-view .stage > :not(.view, .update) { display: none; }
 .view { max-width: 980px !important; }
-.panel {
-  padding: 18px 22px; border-radius: 14px; display: flex; flex-direction: column; gap: 12px; font-size: 13px;
-  border: 1px solid var(--system-line); border-top-color: var(--system-line-strong); border-left-color: var(--system-line-strong);
-  background: var(--system-bg);
-}
+.panel { padding: 6px 0 0; display: flex; flex-direction: column; gap: 12px; font-size: 13px; }
 .panel .scenario__title { margin: 0; }
 .panel__text { margin: 0; color: var(--text-2); font-size: 12px; }
 .panel__who { display: flex; align-items: center; gap: 12px; }
@@ -277,7 +273,11 @@ img { display: block; }
 }
 .board__row:last-child { border-bottom: 0; }
 .board__row--head { border-bottom-color: var(--line-strong); padding-top: 0; }
-.board__row.is-me { background: var(--accent-soft); border-bottom-color: transparent; }
+.board__row.is-me {
+  background: linear-gradient(90deg, var(--accent-soft), transparent 70%);
+  box-shadow: inset 2px 0 0 var(--accent); border-radius: 0 8px 8px 0;
+}
+.board__row.is-me .board__name { color: var(--accent-text); }
 .board__head { color: var(--text-3); font-size: 11px; text-align: center; }
 .board__head:nth-child(2) { text-align: left; }
 .board__rank { font-family: var(--font-num); font-weight: 600; font-size: 18px; color: var(--text-2); text-align: center; }
@@ -349,7 +349,6 @@ img { display: block; }
   .account__me { padding: 3px; }
   .board__row { grid-template-columns: 30px minmax(120px, 1fr) repeat(2, 56px); }
   .board__row > :nth-child(5), .board__row > :nth-child(6) { display: none; }
-  .panel { padding: 14px; }
 }
 
 /* ---------- Mode capture (partage en image, appli de bureau) ----------

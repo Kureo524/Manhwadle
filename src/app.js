@@ -532,7 +532,7 @@
     + 'Supprimer le compte efface tout, définitivement.';
 
   function panel(title, ...children) {
-    const box = el('div', 'panel glass');
+    const box = el('div', 'panel');
     box.append(el('h2', 'scenario__title', title), ...children);
     return box;
   }
