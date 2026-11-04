@@ -4,8 +4,8 @@
 name: Release
 
 on:
+  # Toutes les PR : les trois builds servent de vérification obligatoire avant fusion.
   pull_request:
-    paths: ['.github/workflows/release.yml', 'package.json', 'package-lock.json', 'main.js', 'preload.js', 'src/**']
   push:
     tags: ['v*']
   workflow_dispatch:
