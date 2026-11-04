@@ -19,6 +19,9 @@
     set(key, value) { try { localStorage.setItem(`manhwadle.${key}`, JSON.stringify(value)); } catch { /* ignoré */ } },
   };
 
+  // Le mode démo (dev) ne doit jamais toucher aux parties ni aux stats du joueur.
+  if (window.manhwadle.demo) store.set = () => {};
+
   const emptyStats = () => ({ played: 0, won: 0, streak: 0, best: 0, totalGuesses: 0, lastDay: null });
   let stats = store.get('stats', { daily: emptyStats(), endless: emptyStats() });
   let mode = store.get('mode', 'daily');
@@ -351,7 +354,8 @@
   const input = $('search');
   input.addEventListener('input', () => { active = 0; openSuggestions(); });
   input.addEventListener('focus', openSuggestions);
-  input.addEventListener('blur', () => setTimeout(closeSuggestions, 80));
+  // Changer de fenêtre ne ferme pas la liste ; cliquer ailleurs dans l'appli, si.
+  input.addEventListener('blur', () => setTimeout(() => { if (document.hasFocus()) closeSuggestions(); }, 80));
   input.addEventListener('keydown', (e) => {
     const n = suggestionList.length;
     if (e.key === 'ArrowDown' && n) { e.preventDefault(); active = (active + 1) % n; highlight(); }
@@ -361,7 +365,7 @@
     else if (e.key === 'Tab' && suggestionList[active]?.manhwa) { e.preventDefault(); pick(suggestionList[active]); }
     else if (e.key === 'Escape') closeSuggestions();
   });
-  window.addEventListener('resize', () => { closeSuggestions(); renderMode(); });
+  window.addEventListener('resize', () => { if (!$('suggestions').hidden) openSuggestions(); renderMode(); });
 
   $('mode').addEventListener('click', (e) => {
     const b = e.target.closest('.segmented__item');
@@ -384,4 +388,15 @@
   render();
   document.fonts.ready.then(renderMode);
   input.focus();
+
+  const demo = window.manhwadle.demo;
+  if (demo) {
+    if (demo.guesses.length) {
+      mode = 'endless';
+      newEndlessGame();
+      demo.guesses.filter((id) => byId.has(id) && id !== game.target.id).forEach(submitGuess);
+    }
+    // Démo : garde la liste ouverte malgré les changements de focus du compositeur.
+    if (demo.type) { input.value = demo.type; setInterval(() => { if ($('suggestions').hidden) openSuggestions(); }, 400); }
+  }
 })();
