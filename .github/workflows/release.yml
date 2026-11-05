@@ -56,7 +56,14 @@ jobs:
 
       - name: Build
         shell: bash
-        run: npx electron-builder ${{ matrix.args }} --publish never
+        # Les téléchargements d'electron-builder échouent parfois (504) : on réessaie sans refaire tout le job.
+        run: |
+          for attempt in 1 2 3; do
+            npx electron-builder ${{ matrix.args }} --publish never && exit 0
+            echo "::warning::Build échoué (tentative $attempt sur 3)"
+            sleep 60
+          done
+          exit 1
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
