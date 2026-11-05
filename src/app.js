@@ -162,9 +162,10 @@
 
   async function login() {
     // Déjà en cours : on ramène la fenêtre Discord au premier plan (appli).
-    if (loggingIn) { window.manhwadle.login?.(); return; }
+    // Appli installée sur téléphone : on rouvre la page Discord.
+    if (loggingIn) { if (window.manhwadle.login) window.manhwadle.login(); else online.reopenLogin(); return; }
     loggingIn = true;
-    accountMsg = t(typeof window.manhwadle.login === 'function' ? 'msg.loginWindow' : 'msg.loginRedirect');
+    accountMsg = t(typeof window.manhwadle.login === 'function' ? 'msg.loginWindow' : online.waitingForApp ? 'msg.loginApp' : 'msg.loginRedirect');
     view = 'account';
     render();
     const error = await online.login();
@@ -363,11 +364,11 @@
     const side = el('div', 'scenario__side');
 
     if (game.done) {
-      const t = game.target;
+      const target = game.target;
       main.append(el('h2', 'scenario__title', game.won ? t('sc.won') : t('sc.lost')));
       const res = el('div', 'result');
       const txt = el('div');
-      txt.append(el('div', 'result__name', t.name), el('div', 'result__manhwa', manhwaById.get(t.manhwa).title));
+      txt.append(el('div', 'result__name', target.name), el('div', 'result__manhwa', manhwaById.get(target.manhwa).title));
       res.append(txt);
       main.append(res);
       main.append(rows([
@@ -399,7 +400,7 @@
         actions.append(again);
       }
       main.append(actions);
-      side.append(portrait(t, 'lg'));
+      side.append(portrait(target, 'lg'));
     } else {
       const level = mode === 'daily' ? 'A' : DIFFICULTY[Math.min(enabled.size, DIFFICULTY.length - 1)];
       main.append(el('h2', 'scenario__title', mode === 'daily' ? t('sc.titleDaily') : t('sc.titleEndless')));
