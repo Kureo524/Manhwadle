@@ -1,6 +1,8 @@
 // API de Manhwadle (Cloudflare Worker + D1).
 //
 //   GET    /auth/discord            → redirige vers Discord (connexion)
+//                                       (appli installée, ?poll= : page de confirmation avec un code court)
+//   POST   /auth/discord/confirm    → appli installée : après confirmation, redirige vers Discord
 //   GET    /auth/discord/callback   → crée la session, renvoie vers le site avec #session=<jeton>
 //   POST   /auth/poll               → appli installée (PWA) : récupère la session une fois la connexion faite
 //   POST   /auth/logout             → ferme la session
@@ -11,6 +13,7 @@
 //
 // Authentification : en-tête « Authorization: Bearer <jeton> » (pas de cookie, donc pas de CSRF).
 import characters from '../../data/characters.json';
+import Logic from '../../src/logic.js';
 import { validateDailyGame, nextStats, liveStreak } from './game.js';
 
 const SESSION_DAYS = 90;
@@ -70,16 +73,61 @@ const POLL_KEY = /^[A-Za-z0-9_-]{32,128}$/;
 async function login(request, env) {
   if (!env.DISCORD_CLIENT_ID) return fail('Connexion Discord non configurée.', 503);
   const poll = new URL(request.url).searchParams.get('poll');
-  if (poll !== null && !POLL_HASH.test(poll)) return fail('Paramètre poll invalide.');
+  if (poll === null) return toDiscord(request, env, null, 'none');
+  if (!POLL_HASH.test(poll)) return fail('Paramètre poll invalide.');
+  return confirmPage(poll);
+}
+
+// Appli installée : le joueur a confirmé que le code est bien celui de son appli. Le formulaire doit
+// venir de la page de confirmation elle-même, et Discord redemande toujours l'autorisation.
+async function confirmLogin(request, env) {
+  if (!env.DISCORD_CLIENT_ID) return fail('Connexion Discord non configurée.', 503);
+  if (request.headers.get('Origin') !== new URL(request.url).origin) return fail('Origine refusée.', 403);
+  const poll = (await request.formData().catch(() => null))?.get('poll');
+  if (typeof poll !== 'string' || !POLL_HASH.test(poll)) return fail('Paramètre poll invalide.');
+  return toDiscord(request, env, poll, 'consent', 303);
+}
+
+async function toDiscord(request, env, poll, prompt, status = 302) {
   const state = randomToken();
   await env.DB.prepare('INSERT INTO oauth_states (state, expires_at, poll_hash) VALUES (?, ?, ?)')
     .bind(state, isoIn(STATE_MINUTES * 60e3), poll).run();
   const url = new URL('https://discord.com/oauth2/authorize');
   url.search = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID, response_type: 'code', scope: 'identify',
-    redirect_uri: callbackUrl(request), state, prompt: 'none',
+    redirect_uri: callbackUrl(request), state, prompt,
   });
-  return Response.redirect(url.href, 302);
+  return Response.redirect(url.href, status);
+}
+
+const PAGE_STYLE = `body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0c0c12;color:#e8eefa;font:15px/1.6 system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
+main{max-width:460px}h1{font:400 16px/1.4 ui-monospace,monospace;color:#a9c4f0;margin:0 0 12px}p{margin:4px 0}.en{color:#8a8a9c;font-size:13px}
+.code{font:600 30px/1.2 ui-monospace,monospace;letter-spacing:.08em;margin:18px 0}
+button{margin:18px 0;padding:10px 16px;border:1px solid #a9c4f0;border-radius:8px;background:transparent;color:#e8eefa;font:inherit;cursor:pointer}`;
+const PAGE_HEADERS = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+};
+
+// Page de confirmation (appli installée) : rien n'est écrit en base avant la confirmation.
+// form-action autorise Discord car le formulaire y est redirigé.
+function confirmPage(poll) {
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manhwadle — Connexion de l'appli</title><style>${PAGE_STYLE}</style></head><body><main>
+<h1>[Connexion de l'appli Manhwadle]</h1>
+<p>Tu vas connecter l'appli Manhwadle installée, sur cet appareil ou un autre. Vérifie que ce code est bien celui affiché dans ton appli :</p>
+<p class="en">You are about to log in the installed Manhwadle app, on this device or another one. Check that this code is the one shown in your app:</p>
+<p class="code">${Logic.loginCode(poll)}</p>
+<form method="post" action="/auth/discord/confirm"><input type="hidden" name="poll" value="${poll}">
+<button type="submit">Le code est le même, continuer avec Discord<br>Same code, continue with Discord</button></form>
+<p>Si tu ne vois pas ce code dans ton appli, ferme cette page : quelqu'un d'autre a pu t'envoyer ce lien pour accéder à ton compte.</p>
+<p class="en">If you don't see this code in your app, close this page: someone else may have sent you this link to access your account.</p>
+</main></body></html>`;
+  return new Response(html, { headers: { ...PAGE_HEADERS,
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://discord.com; frame-ancestors 'none'; base-uri 'none'",
+  } });
 }
 
 // Page affichée à la fin d'une connexion lancée depuis l'appli installée.
@@ -173,6 +221,7 @@ async function route(request, env) {
   const method = request.method;
 
   if (method === 'GET' && pathname === '/auth/discord') return login(request, env);
+  if (method === 'POST' && pathname === '/auth/discord/confirm') return confirmLogin(request, env);
   if (method === 'GET' && pathname === '/auth/discord/callback') return callback(request, env);
   if (method === 'POST' && pathname === '/auth/poll') return poll(request, env);
 
