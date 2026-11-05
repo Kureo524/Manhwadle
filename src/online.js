@@ -39,7 +39,8 @@
   }
 
   // Appli installée sur téléphone (PWA) : quitter la page vers Discord ne revient pas dans l'appli
-  // (le lien s'ouvre dans le navigateur ou l'appli Discord). On ouvre donc Discord à côté, et l'appli
+  // (le lien s'ouvre dans le navigateur ou l'appli Discord). Discord s'ouvre donc à part, au-dessus de l'appli :
+  // le joueur voit d'abord son code, puis ouvre la page lui-même avec un bouton. L'appli
   // récupère la session auprès du serveur avec un code secret, dont seule l'empreinte part dans l'adresse.
   const standalone = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
   const POLL_MS = 2000;
@@ -48,23 +49,14 @@
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const sha256 = async (text) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))]
     .map((b) => b.toString(16).padStart(2, '0')).join('');
-  // Code préparé d'avance : window.open doit partir tout de suite après le toucher (sinon iOS le bloque).
-  let nextPair = null;
-  const preparePair = () => {
-    if (!window.crypto?.subtle) return;
-    const key = randomKey();
-    sha256(key).then((hash) => { nextPair = { key, hash }; }).catch(() => {});
-  };
-  if (standalone()) preparePair();
-  let pending = null; // connexion en cours : { url }
+  let pending = null; // connexion en cours : { url, cancelled, wake }
 
   async function loginByPoll(onCode) {
-    const pair = nextPair ?? await (async () => { const key = randomKey(); return { key, hash: await sha256(key) }; })();
-    nextPair = null;
-    preparePair();
-    pending = { url: `${API}/auth/discord?poll=${pair.hash}` };
-    window.open(pending.url, '_blank');
-    onCode?.(window.Logic.loginCode(pair.hash));
+    const key = randomKey();
+    const hash = await sha256(key);
+    const current = { url: `${API}/auth/discord?poll=${hash}`, cancelled: false, wake: null };
+    pending = current;
+    onCode?.(window.Logic.loginCode(hash));
     const started = Date.now();
     try {
       while (Date.now() - started < POLL_LIMIT_MS) {
@@ -74,10 +66,12 @@
           const onVisible = () => { if (document.visibilityState === 'visible') done(); };
           const timer = setTimeout(done, POLL_MS);
           document.addEventListener('visibilitychange', onVisible);
+          current.wake = done;
         });
+        if (current.cancelled) return 'annule';
         if (document.visibilityState !== 'visible') continue;
         let r;
-        try { r = await call('POST', '/auth/poll', { poll: pair.key }); } catch { continue; } // réseau coupé : on réessaie
+        try { r = await call('POST', '/auth/poll', { poll: key }); } catch { continue; } // réseau coupé : on réessaie
         if (r.pending) continue;
         if (validToken(r.session)) { writeToken(r.session); return null; }
         return loginCode(r.error);
@@ -118,8 +112,14 @@
       location.href = `${API}/auth/discord`;
       return new Promise(() => {}); // la page change
     },
-    /** Rouvre la page Discord de la connexion en cours (appli installée). */
-    reopenLogin() { if (pending) window.open(pending.url, '_blank'); },
+    /** Ouvre la page Discord de la connexion en cours (appli installée). */
+    openLoginPage() { if (pending) window.open(pending.url, '_blank'); },
+    /** Abandonne la connexion en cours (appli installée). */
+    cancelLoginPage() {
+      if (!pending) return;
+      pending.cancelled = true;
+      pending.wake?.();
+    },
     me: () => call('GET', '/me'),
     leaderboard: () => call('GET', '/leaderboard'),
     daily: () => call('GET', '/games/daily'),
