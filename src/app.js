@@ -714,9 +714,22 @@
     // Grand aperçu du personnage surligné, à droite de la liste.
     if (suggestionList.some((x) => x.char)) box.append(el('div', 'suggestions__preview'));
     renderPreview();
-    const r = input.getBoundingClientRect();
-    Object.assign(box.style, { left: `${r.left}px`, top: `${r.bottom + 6}px`, width: `${r.width}px` });
     box.hidden = false;
+    placeSuggestions();
+  }
+
+  // La liste est posée en position fixe sous le champ : on la recale quand la page défile,
+  // et on la ferme si le champ sort de la zone visible.
+  function placeSuggestions() {
+    const box = $('suggestions');
+    if (box.hidden) return;
+    const r = $('search').getBoundingClientRect();
+    const view = document.querySelector('.stage').getBoundingClientRect();
+    if (r.bottom < view.top || r.top > view.bottom) return closeSuggestions();
+    Object.assign(box.style, { left: `${r.left}px`, top: `${r.bottom + 6}px`, width: `${r.width}px` });
+    // Hauteur limitée à la place restante sous le champ (petit écran, clavier du téléphone).
+    const list = box.querySelector('.suggestions__list');
+    if (list) list.style.maxHeight = `${Math.max(160, Math.min(420, innerHeight - r.bottom - 22))}px`;
   }
 
   function renderPreview() {
@@ -752,6 +765,7 @@
     else if (e.key === 'Escape') closeSuggestions();
   });
   window.addEventListener('resize', () => { if (!$('suggestions').hidden) openSuggestions(); renderMode(); });
+  document.querySelector('.stage').addEventListener('scroll', placeSuggestions, { passive: true });
 
   $('mode').addEventListener('click', (e) => {
     const b = e.target.closest('.tabs__item');

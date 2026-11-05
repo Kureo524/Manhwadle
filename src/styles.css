@@ -319,7 +319,7 @@ html.has-titlebar .link.quit { display: none; }
   background: rgba(16, 18, 28, .94);
   border: 1px solid var(--system-line); border-top-color: var(--system-line-strong); border-left-color: var(--system-line-strong);
 }
-.suggestions__list { flex: 1; min-width: 0; max-height: 420px; overflow-y: auto; }
+.suggestions__list { flex: 1; min-width: 0; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; }
 .suggestions__preview {
   flex: none; width: 236px; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
   border-left: 1px solid var(--line);
