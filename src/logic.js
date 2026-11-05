@@ -163,8 +163,19 @@
     return [title, result, ...grid, url].filter(Boolean).join('\n');
   }
 
+  /**
+   * Code court affiché à la fois dans l'appli installée et sur la page de confirmation du serveur,
+   * dérivé de l'empreinte de connexion (64 caractères hexadécimaux). Sans I, O, 0 ni 1 : facile à comparer.
+   */
+  function loginCode(hash) {
+    const ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const chars = [];
+    for (let i = 0; i < 6; i++) chars.push(ALPHABET[parseInt(hash.slice(i * 2, i * 2 + 2), 16) % ALPHABET.length]);
+    return `${chars.slice(0, 3).join('')}-${chars.slice(3).join('')}`;
+  }
+
   const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, dailyCharacter, hash, normalize, parseQuery, search,
-    LAUNCH_DAY, dayNumber, liveStreak, shareText };
+    LAUNCH_DAY, dayNumber, liveStreak, shareText, loginCode };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.Logic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -58,12 +58,13 @@
   if (standalone()) preparePair();
   let pending = null; // connexion en cours : { url }
 
-  async function loginByPoll() {
+  async function loginByPoll(onCode) {
     const pair = nextPair ?? await (async () => { const key = randomKey(); return { key, hash: await sha256(key) }; })();
     nextPair = null;
     preparePair();
     pending = { url: `${API}/auth/discord?poll=${pair.hash}` };
     window.open(pending.url, '_blank');
+    onCode?.(window.Logic.loginCode(pair.hash));
     const started = Date.now();
     try {
       while (Date.now() - started < POLL_LIMIT_MS) {
@@ -98,20 +99,19 @@
      * Connexion Discord. Appli : fenêtre de connexion gérée par le processus principal,
      * renvoie un code d'erreur (annule, expire, erreur) ou null. Site : la page part vers Discord et revient avec #session=.
      * Appli installée (PWA) : Discord s'ouvre à côté, l'appli attend la session (voir loginByPoll).
+     * onCode reçoit le code court à afficher, à comparer avec celui de la page de confirmation.
      */
-    async login() {
+    async login(onCode) {
       if (typeof window.manhwadle.login === 'function') {
         const r = await window.manhwadle.login();
         if (!r) return 'annule';
         if (validToken(r.session)) { writeToken(r.session); return null; }
         return loginCode(r.error);
       }
-      if (standalone()) return loginByPoll();
+      if (standalone()) return loginByPoll(onCode);
       location.href = `${API}/auth/discord`;
       return new Promise(() => {}); // la page change
     },
-    /** Appli installée : connexion lancée mais pas finie (message adapté, bouton pour rouvrir Discord). */
-    get waitingForApp() { return standalone(); },
     /** Rouvre la page Discord de la connexion en cours (appli installée). */
     reopenLogin() { if (pending) window.open(pending.url, '_blank'); },
     me: () => call('GET', '/me'),

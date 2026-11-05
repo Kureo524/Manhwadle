@@ -140,3 +140,11 @@ test('traductions : mêmes clés en français et en anglais, aucune valeur de fi
   assert.deepEqual(left, []);
   assert.equal(I.value('Famille Glayder'), 'Glayder Family');
 });
+
+test('loginCode : code court, stable et sans caractère ambigu', () => {
+  const hash = 'b1343b5c8b899314c71c1b33393d647496126fc5173376742907103c089ccd2c';
+  const code = L.loginCode(hash);
+  assert.match(code, /^[2-9A-HJ-NP-Z]{3}-[2-9A-HJ-NP-Z]{3}$/);
+  assert.equal(L.loginCode(hash), code);
+  assert.notEqual(L.loginCode('00'.repeat(32)), L.loginCode('01'.repeat(32)));
+});
