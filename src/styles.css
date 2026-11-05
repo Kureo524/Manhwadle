@@ -92,6 +92,13 @@ html.has-titlebar .link.quit { display: none; }
   transition: left .32s var(--ease-out-back), width .32s var(--ease-out-back);
 }
 
+/* Appli de bureau : onglets au centre de l'en-tête (la mise en page complète fait toujours
+   1360 px CSS de large, voir window-fit.js ; sous 1100 px, l'en-tête reprend sa disposition en ligne). */
+@media (min-width: 1101px) {
+  html:not(.is-web) .top { position: relative; }
+  html:not(.is-web) .tabs { position: absolute; left: 50%; transform: translateX(-50%); }
+}
+
 /* ---------- Mise à jour (appli de bureau) ---------- */
 .update { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; }
 

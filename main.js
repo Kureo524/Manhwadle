@@ -28,7 +28,10 @@ function start() {
   const gameData = loadGameData();
   ipcMain.on('manhwadle:data', (event) => { event.returnValue = gameData; });
   ipcMain.on('manhwadle:quit', () => app.quit());
-  ipcMain.handle('manhwadle:share-image', (event) => copyGameArea(event.sender).catch(() => false));
+  ipcMain.handle('manhwadle:share-image', (event) => copyGameArea(event.sender).catch((e) => {
+    console.error('[partage]', e);
+    return false;
+  }));
   ipcMain.handle('manhwadle:login', (event) => discordLogin(BrowserWindow.fromWebContents(event.sender)));
   ipcMain.on('manhwadle:login-cancel', () => loginWindow?.close());
 
@@ -79,6 +82,8 @@ function createWindow() {
     minHeight: 480,
     ...(WINDOW_LOOK[process.platform] ?? WINDOW_LOOK.linux),
     title: 'Manhwadle',
+    // Icône de la fenêtre (barre des tâches Windows, Linux X11). macOS prend celle du paquet .app.
+    icon: path.join(__dirname, 'assets/icons/icon-512.png'),
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
