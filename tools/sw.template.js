@@ -2,13 +2,19 @@
 // - Installation : tout le jeu est mis en cache (pages, scripts, données, polices, portraits).
 // - Ensuite, le cache répond en premier : le jeu se lance et se joue sans réseau.
 // - Chaque nouvelle version du site a son propre cache ; l'ancien est supprimé à l'activation.
+// - Une nouvelle version attend : le joueur la lance depuis le jeu, sinon elle s'active quand l'appli est fermée.
 // - L'API en ligne (connexion, classement) n'est jamais mise en cache.
 'use strict';
 const CACHE = 'manhwadle-__VERSION__';
 const FILES = __FILES__;
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));
+  // cache: 'reload' : jamais le cache HTTP, qui peut encore contenir l'ancienne version (10 min sur GitHub Pages).
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))));
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'skip-waiting') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
