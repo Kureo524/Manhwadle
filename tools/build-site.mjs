@@ -36,6 +36,7 @@ const HEAD = `<head>
 const html = await readFile(join(root, 'src/index.html'), 'utf8');
 await writeFile(join(site, 'index.html'), html.replace('<head>', HEAD));
 await writeFile(join(site, '.nojekyll'), '');
+await cp(join(root, 'web/privacy.html'), join(site, 'privacy.html'));
 
 await writeFile(join(site, 'manifest.webmanifest'), JSON.stringify({
   id: './',

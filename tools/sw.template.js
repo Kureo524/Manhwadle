@@ -29,8 +29,9 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    // Toute navigation dans le site ouvre la page du jeu (ex. retour de Discord avec #session=…).
-    const hit = req.mode === 'navigate' ? await cache.match('./') : await cache.match(req, { ignoreSearch: true });
+    // Une navigation vers une page inconnue (ex. /index.html) ouvre le jeu.
+    const known = await cache.match(req, { ignoreSearch: true });
+    const hit = known ?? (req.mode === 'navigate' ? await cache.match('./') : undefined);
     if (hit) return hit;
     const res = await fetch(req);
     if (res.ok && req.mode !== 'navigate') cache.put(req, res.clone());
