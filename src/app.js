@@ -7,8 +7,7 @@
   const t = I.t;
 
   const SITE_URL = 'https://kureo524.github.io/Manhwadle/';
-  const HINT_AT = 6;        // essais avant l'indice (portrait flouté)
-  const HINT_CLEAR_AT = 10; // essais avant un flou plus léger
+  const { HINT_AT, HINT_CLEAR_AT } = L;
   const byId = new Map(characters.map((c) => [c.id, c]));
   const manhwaById = new Map(manhwas.map((m) => [m.id, m]));
   const $ = (id) => document.getElementById(id);
@@ -31,10 +30,21 @@
   let enabled = new Set(store.get('filters', manhwas.map((m) => m.id)).filter((id) => manhwaById.has(id)));
   if (!enabled.size) enabled = new Set(manhwas.map((m) => m.id));
 
-  let game = null; // { target, guesses: [ids], done, won, day? }
+  // Infini : { target, guesses: [ids], done, won }, tout est calculé ici.
+  // Perso du jour : { day, guesses: [ids], results: Map(id → états), done, won, target, hint }, tout vient du serveur :
+  // le jeu ne connaît pas la réponse avant la fin de la partie.
+  let game = null;
 
-  // Compte en ligne (facultatif, jamais en mode démo) : la série du jour est vérifiée et gardée par le serveur.
+  // Compte en ligne (facultatif, jamais en mode démo) : le perso du jour se joue sur le serveur.
   const online = window.manhwadle.demo ? null : window.Online;
+  let dailyStatus = 'locked'; // 'locked' (sans compte) | 'loading' | 'offline' (serveur injoignable) | 'ready'
+  let dailyGame = null;       // dernière partie du jour reçue du serveur
+  let dailyMsg = '';          // erreur à afficher sous la recherche
+  let dailyBusy = false;      // essai en cours d'envoi
+  let dailyHint = null;       // { key, url } image d'indice déjà chargée (url null : pas d'image pour ce scénario)
+  // Sans compte, l'appli s'ouvre sur le mode infini, sans toucher au mode enregistré.
+  let openingDaily = mode === 'daily' && !!online?.signedIn;
+  if (!online?.signedIn) mode = 'endless';
   let view = 'game';      // 'game' | 'ranking' | 'account'
   let profile = null;     // profil renvoyé par l'API quand le joueur est connecté
   let board = null;       // classement chargé
@@ -57,15 +67,15 @@
     return ok;
   }
 
-  const dailyStreak = () => L.liveStreak(stats.daily);
+  const dailyStreak = () => L.liveStreak(stats.daily, L.utcDayKey());
 
   // ---------- Parties ----------
   function loadGame() {
     if (mode === 'daily') {
-      const day = L.dayKey();
-      const target = L.dailyCharacter(characters, day);
-      const saved = store.get(`daily.${day}`, null);
-      game = { day, target, guesses: saved?.guesses?.filter((id) => byId.has(id)) ?? [], done: !!saved?.done, won: !!saved?.won };
+      game = dailyGame?.day === L.utcDayKey() ? dailyGame : { guesses: [], results: new Map(), done: false, won: false, target: null, hint: 0 };
+      if (!online?.signedIn) { dailyStatus = 'locked'; return; }
+      if (game !== dailyGame) dailyStatus = 'loading';
+      loadDaily();
     } else {
       const saved = store.get('endless.current', null);
       const target = saved && byId.get(saved.target);
@@ -85,29 +95,23 @@
   }
 
   function saveGame() {
-    const data = { guesses: game.guesses, done: game.done, won: game.won };
-    if (mode === 'daily') store.set(`daily.${game.day}`, data);
-    else store.set('endless.current', { ...data, target: game.target.id });
+    store.set('endless.current', { guesses: game.guesses, done: game.done, won: game.won, target: game.target.id });
   }
 
   function finish(won) {
     game.done = true;
     game.won = won;
-    const s = stats[mode];
+    const s = stats.endless;
     s.played++;
     if (won) {
       s.won++;
       s.coins = (s.coins ?? 0) + reward(game.guesses.length);
       s.totalGuesses += game.guesses.length;
-      // En mode « jour », la série casse si un jour a été sauté.
-      const yesterday = L.dayKey(new Date(Date.now() - 864e5));
-      s.streak = mode === 'daily' && s.lastDay !== yesterday ? 1 : s.streak + 1;
+      s.streak += 1;
       s.best = Math.max(s.best, s.streak);
     } else s.streak = 0;
-    if (mode === 'daily') s.lastDay = game.day;
     store.set('stats', stats);
     saveGame();
-    if (mode === 'daily' && online?.signedIn) syncAccount();
   }
 
   // ---------- Synchronisation avec le serveur ----------
@@ -121,26 +125,68 @@
     store.set('stats', stats);
   }
 
-  // Envoie les scénarios du jour terminés sur cet appareil (hier, aujourd'hui) que le serveur n'a pas encore.
-  async function pushDailyGames() {
-    for (const day of [L.dayKey(new Date(Date.now() - 864e5)), L.dayKey()]) {
-      if (profile.lastDay && day <= profile.lastDay) continue;
-      const saved = store.get(`daily.${day}`, null);
-      if (!saved?.done || !saved.guesses?.length) continue;
-      try {
-        applyProfile(await online.submitDaily(day, saved.guesses));
-      } catch (e) {
-        // 409 : déjà joué ailleurs ; 400 : scénario refusé (trop ancien…). Le reste est réessayé plus tard.
-        if (e.status !== 409 && e.status !== 400) throw e;
+  // Partie du jour renvoyée par le serveur.
+  function applyDaily(s) {
+    dailyGame = {
+      day: s.day,
+      guesses: s.guesses.filter((g) => byId.has(g.id)).map((g) => g.id),
+      results: new Map(s.guesses.map((g) => [g.id, g.results])),
+      done: s.done,
+      won: s.won,
+      target: s.target ? byId.get(s.target) ?? { name: '???', manhwa: null } : null,
+      hint: s.hint,
+    };
+    applyProfile(s.profile);
+    dailyStatus = 'ready';
+    if (mode === 'daily') game = dailyGame;
+  }
+
+  async function loadDaily() {
+    const opening = openingDaily;
+    openingDaily = false;
+    try {
+      applyDaily(await online.daily());
+      dailyMsg = '';
+    } catch (e) {
+      if (e.status === 401) { profile = null; dailyStatus = 'locked'; accountMsg = t('msg.sessionExpired'); }
+      else {
+        dailyStatus = 'offline';
+        // Au lancement, sans réseau : on ouvre le mode infini plutôt qu'un scénario impossible à jouer.
+        if (opening && mode === 'daily') { mode = 'endless'; loadGame(); }
       }
     }
+    render();
+  }
+
+  async function submitDailyGuess(id) {
+    if (dailyBusy) return;
+    dailyBusy = true;
+    closeSuggestions();
+    $('search').value = '';
+    try {
+      applyDaily(await online.dailyGuess(id, dailyGame.day));
+      dailyMsg = '';
+      if (dailyGame.done && dailyGame.won) {
+        stats.daily.coins = (stats.daily.coins ?? 0) + reward(dailyGame.guesses.length);
+        store.set('stats', stats);
+      }
+      dailyBusy = false;
+      render({ animateFirst: true });
+      return;
+    } catch (e) {
+      if (e.code === 'day-changed' || e.status === 409) await loadDaily();
+      else if (e.status === 401) await loadDaily();
+      else dailyMsg = t(e.code === 'update' ? 'daily.update' : 'daily.sendFailed');
+    }
+    dailyBusy = false;
+    render();
   }
 
   async function syncAccount() {
     if (!online?.signedIn) { profile = null; render(); return; }
     try {
       applyProfile(await online.me());
-      await pushDailyGames();
+      if (mode === 'daily' && dailyStatus !== 'loading') { await loadDaily(); return; }
     } catch (e) {
       if (e.status === 401) { profile = null; accountMsg = t('msg.sessionExpired'); }
       else if (!profile) accountMsg = t('msg.offline');
@@ -179,9 +225,18 @@
     await syncAccount();
   }
 
+  // Plus de compte sur cet appareil : la partie du jour ne doit plus s'afficher.
+  function forgetDaily() {
+    dailyGame = null;
+    if (dailyHint?.url) URL.revokeObjectURL(dailyHint.url);
+    dailyHint = null;
+    if (mode === 'daily') loadGame();
+  }
+
   async function logout() {
     await online.logout().catch(() => {});
     profile = null;
+    forgetDaily();
     accountMsg = t('msg.loggedOut');
     render();
   }
@@ -192,6 +247,7 @@
     try {
       await online.deleteAccount();
       profile = null;
+      forgetDaily();
       accountMsg = t('msg.deleted');
     } catch {
       accountMsg = t('msg.deleteFailed');
@@ -210,6 +266,7 @@
 
   function submitGuess(id) {
     if (game.done || game.guesses.includes(id)) return;
+    if (mode === 'daily') { submitDailyGuess(id); return; }
     game.guesses.push(id);
     const won = id === game.target.id;
     if (won) finish(true); else saveGame();
@@ -242,6 +299,14 @@
     up: '<svg class="cell__arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M4 7l4-4 4 4"/></svg>',
     down: '<svg class="cell__arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10M4 9l4 4 4-4"/></svg>',
   };
+
+  // Comparaison d'un essai : calculée ici en infini, reçue du serveur pour le perso du jour.
+  function resultsFor(id) {
+    const c = byId.get(id);
+    if (!game.results) return L.compare(c, game.target);
+    const states = game.results.get(id);
+    return L.COLUMNS.map((col) => ({ ...col, value: c[col.key], ...states.find((r) => r.key === col.key) }));
+  }
 
   function cell(result) {
     const c = el('div', `cell cell--${result.state}`);
@@ -276,7 +341,7 @@
       const txt = el('div');
       txt.append(el('div', 'who__name', c.name), el('div', 'who__manhwa', manhwaById.get(c.manhwa).title));
       who.append(txt);
-      const cells = [who, ...L.compare(c, game.target).map(cell)];
+      const cells = [who, ...resultsFor(id).map(cell)];
       cells.forEach((node, i) => {
         if (row === 0 && animateFirst) { node.classList.add('reveal'); node.style.animationDelay = `${i * 70}ms`; }
         // Nom de la colonne (repris de l'en-tête), affiché dans les cartes d'essai sur téléphone.
@@ -295,12 +360,12 @@
   const pickOf = (list, seed) => list[L.hash(seed) % list.length];
 
   function reaction(guessId, index) {
-    const r = L.compare(byId.get(guessId), game.target);
+    const r = resultsFor(guessId);
     const ok = r.filter((x) => x.state === 'ok').length;
     const sameStory = r[0].state === 'ok';
-    const who = pickOf(t('constellations'), `${game.target.id}:${index}`);
+    const who = pickOf(t('constellations'), `${game.day ?? game.target.id}:${index}`);
     const seed = `${guessId}:${index}`;
-    if (guessId === game.target.id) return [t('react.win'), null];
+    if (guessId === game.target?.id) return [t('react.win'), null];
     if (ok >= 7) return [pickOf(t('react.close'), seed), who];
     if (sameStory && ok >= 4) return [pickOf(t('react.story'), seed), who];
     if (ok >= 4) return [pickOf(t('react.warm'), seed), who];
@@ -313,13 +378,10 @@
     box.replaceChildren();
     const lines = game.guesses.map((id, i) => reaction(id, i));
     const live = dailyStreak();
-    const playedElsewhere = mode === 'daily' && !game.done && profile?.lastDay && profile.lastDay >= game.day;
-    if (mode === 'daily' && !game.done && !game.guesses.length && live && !playedElsewhere) {
+    if (mode === 'daily' && dailyStatus === 'ready' && !game.done && !game.guesses.length && live) {
       lines.push([t('feed.streakAtStake', { n: live }), null]);
     }
-    if (playedElsewhere) {
-      lines.push([t('feed.playedElsewhere'), null]);
-    }
+    if (mode === 'daily' && dailyMsg) lines.push([dailyMsg, null]);
     if (game.done && !game.won) lines.push([t('feed.lost'), null]);
     if (game.done && game.won) lines.push([t('feed.coins', { n: I.integer(reward(game.guesses.length)) }), null]);
     if (game.done && mode === 'daily') {
@@ -358,20 +420,66 @@
     return [t('sc.streak'), t('sc.streakRun', { n: live, best }), live];
   }
 
+  // Perso du jour indisponible : sans compte, en chargement, ou serveur injoignable.
+  function renderDailyGate(box) {
+    const main = el('div');
+    const action = (label, fn) => {
+      const b = el('button', 'link link--strong', label);
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const toEndless = () => { mode = 'endless'; store.set('mode', mode); loadGame(); render(); };
+    if (dailyStatus === 'loading') {
+      main.append(el('h2', 'scenario__title', t('daily.loading')));
+    } else {
+      const locked = dailyStatus === 'locked';
+      main.append(el('h2', 'scenario__title', t(locked ? 'daily.lockedTitle' : 'daily.offlineTitle')));
+      main.append(el('p', 'panel__text', t(locked ? 'daily.lockedText' : 'daily.offlineText')));
+      const actions = el('div', 'scenario__actions');
+      actions.append(
+        locked ? action(loggingIn ? t('acc.connecting') : t('acc.loginDiscord'), login) : action(t('daily.retry'), () => { dailyStatus = 'loading'; render(); loadDaily(); }),
+        action(t('daily.playEndless'), toEndless),
+      );
+      main.append(actions);
+    }
+    box.append(main);
+  }
+
+  // Indice du perso du jour : image fournie par le serveur, chargée une fois par niveau.
+  function dailyHintImage(side) {
+    const key = `${game.day}:${game.hint}`;
+    if (dailyHint?.key !== key) {
+      if (dailyHint?.url) URL.revokeObjectURL(dailyHint.url);
+      dailyHint = { key, url: undefined };
+      online.dailyHint().then((url) => {
+        if (dailyHint?.key === key) { dailyHint.url = url; renderScenario(); } else if (url) URL.revokeObjectURL(url);
+      }).catch(() => { if (dailyHint?.key === key) dailyHint = null; });
+    }
+    if (dailyHint?.url) {
+      const p = el('div', 'portrait portrait--lg hint__img');
+      const img = el('img');
+      img.src = dailyHint.url; img.alt = ''; img.draggable = false;
+      p.style.setProperty('--blur', '3px');
+      p.append(img);
+      side.append(p);
+    } else side.append(el('div', 'hint__locked', '?'));
+  }
+
   function renderScenario() {
     const box = $('scenario');
     box.replaceChildren();
+    if (mode === 'daily' && dailyStatus !== 'ready') { renderDailyGate(box); return; }
     const n = game.guesses.length;
     const pool = poolFor(mode);
     const main = el('div');
     const side = el('div', 'scenario__side');
 
     if (game.done) {
-      const target = game.target;
+      const target = game.target ?? { name: '???', manhwa: null };
       main.append(el('h2', 'scenario__title', game.won ? t('sc.won') : t('sc.lost')));
       const res = el('div', 'result');
       const txt = el('div');
-      txt.append(el('div', 'result__name', target.name), el('div', 'result__manhwa', manhwaById.get(target.manhwa).title));
+      txt.append(el('div', 'result__name', target.name), el('div', 'result__manhwa', manhwaById.get(target.manhwa)?.title ?? ''));
       res.append(txt);
       main.append(res);
       main.append(rows([
@@ -391,7 +499,7 @@
         }
         const text = L.shareText({
           daily: mode === 'daily', day: game.day, won: game.won, streak: dailyStreak(), url: SITE_URL, lang: I.lang,
-          rows: game.guesses.map((id) => L.compare(byId.get(id), game.target).map((r) => r.state)),
+          rows: game.guesses.map((id) => resultsFor(id).map((r) => r.state)),
         });
         share.textContent = (await copyText(text)) ? t('sc.textCopied') : t('sc.copyFailed');
         setTimeout(() => { share.textContent = t('sc.share'); }, 1800);
@@ -417,10 +525,15 @@
         [t('sc.failure'), mode === 'daily' ? '???' : t('sc.giveUp')],
       ]));
       if (n >= HINT_AT) {
-        const p = portrait(game.target, 'lg');
-        p.classList.add('hint__img');
-        p.style.setProperty('--blur', n >= HINT_CLEAR_AT ? '6px' : '14px');
-        side.append(p, el('div', 'scenario__note system', n >= HINT_CLEAR_AT ? t('hint.clear') : t('hint.blurry', { at: HINT_CLEAR_AT })));
+        if (mode === 'daily') dailyHintImage(side);
+        else {
+          const p = portrait(game.target, 'lg');
+          p.classList.add('hint__img');
+          p.style.setProperty('--blur', n >= HINT_CLEAR_AT ? '6px' : '14px');
+          side.append(p);
+        }
+        const noImage = mode === 'daily' && dailyHint?.url === null;
+        side.append(el('div', 'scenario__note system', noImage ? t('hint.none') : n >= HINT_CLEAR_AT ? t('hint.clear') : t('hint.blurry', { at: HINT_CLEAR_AT })));
       } else {
         const left = HINT_AT - n;
         side.append(el('div', 'hint__locked', left), el('div', 'scenario__note system', t('hint.locked', { n: left })));
@@ -430,9 +543,10 @@
   }
 
   function untilMidnight() {
+    // Le perso du jour change à minuit UTC, pour tout le monde.
     const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const m = Math.ceil((next - now) / 60000);
+    const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+    const m = Math.ceil((next - now.getTime()) / 60000);
     return t('time', { h: Math.floor(m / 60), m: String(m % 60).padStart(2, '0') });
   }
 
@@ -653,8 +767,9 @@
     renderGrid(animateFirst);
     renderStats();
     const input = $('search');
-    input.disabled = game.done;
-    input.placeholder = game.done ? (mode === 'daily' ? t('search.doneDaily') : t('search.doneEndless')) : t('search.placeholder');
+    const gated = mode === 'daily' && dailyStatus !== 'ready';
+    input.disabled = game.done || gated;
+    input.placeholder = gated ? t('search.dailyGated') : game.done ? (mode === 'daily' ? t('search.doneDaily') : t('search.doneEndless')) : t('search.placeholder');
     $('give-up').hidden = mode !== 'endless' || game.done;
   }
 
@@ -786,7 +901,7 @@
 
   // Le perso du jour change à minuit : on recharge si l'appli reste ouverte.
   setInterval(() => {
-    if (mode === 'daily' && game.day !== L.dayKey()) { loadGame(); render(); }
+    if (mode === 'daily' && dailyStatus === 'ready' && game.day !== L.utcDayKey()) { loadGame(); render(); }
     else if (mode === 'daily') renderScenario();
   }, 60000);
 

@@ -21,6 +21,9 @@
     { key: 'hair', label: 'Cheveux', kind: 'set' },
   ];
 
+  const HINT_AT = 6;        // essais avant l'indice (portrait flouté)
+  const HINT_CLEAR_AT = 10; // essais avant un flou plus léger
+
   const isUnknown = (v) =>
     v === null || v === undefined || v === UNKNOWN || (Array.isArray(v) && (v.length === 0 || v.includes(UNKNOWN)));
 
@@ -70,10 +73,8 @@
   }
 
   /** Personnage du jour : même résultat pour tout le monde à date et liste égales. */
-  function dailyCharacter(characters, key = dayKey()) {
-    const sorted = [...characters].sort((a, b) => a.id.localeCompare(b.id));
-    return sorted[hash(`manhwadle:${key}`) % sorted.length];
-  }
+  /** Jour du perso du jour : le même partout, il change à minuit UTC. */
+  const utcDayKey = (now = new Date()) => now.toISOString().slice(0, 10);
 
   const normalize = (s) =>
     s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -174,8 +175,8 @@
     return `${chars.slice(0, 3).join('')}-${chars.slice(3).join('')}`;
   }
 
-  const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, dailyCharacter, hash, normalize, parseQuery, search,
-    LAUNCH_DAY, dayNumber, liveStreak, shareText, loginCode };
+  const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, utcDayKey, hash, normalize, parseQuery, search,
+    LAUNCH_DAY, dayNumber, liveStreak, shareText, loginCode, HINT_AT, HINT_CLEAR_AT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.Logic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

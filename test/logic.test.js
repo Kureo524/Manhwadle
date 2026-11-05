@@ -26,10 +26,10 @@ test('valeur inconnue : pas de verdict', () => {
   assert.equal(L.compareValue('chapter', null, 3).state, 'unknown');
 });
 
-test('perso du jour stable et indépendant de l\'ordre', () => {
-  const a = L.dailyCharacter(chars, '2026-11-04');
-  const b = L.dailyCharacter([...chars].reverse(), '2026-11-04');
-  assert.equal(a.id, b.id);
+test('jour du perso du jour : le même partout, en UTC', () => {
+  assert.equal(L.utcDayKey(new Date('2026-11-04T23:59:59Z')), '2026-11-04');
+  assert.equal(L.utcDayKey(new Date('2026-11-05T00:00:00Z')), '2026-11-05');
+  assert.equal(L.utcDayKey(new Date('2026-11-05T00:30:00+02:00')), '2026-11-04');
 });
 
 test('recherche insensible aux accents, préfixe en premier', () => {

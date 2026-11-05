@@ -34,7 +34,7 @@
     const data = await res.json().catch(() => ({}));
     // Session expirée ou supprimée : on oublie le jeton.
     if (res.status === 401 && token) writeToken(null);
-    if (!res.ok) throw Object.assign(new Error(data.error ?? `Erreur ${res.status}`), { status: res.status });
+    if (!res.ok) throw Object.assign(new Error(data.error ?? `Erreur ${res.status}`), { status: res.status, code: data.code });
     return data;
   }
 
@@ -116,7 +116,15 @@
     reopenLogin() { if (pending) window.open(pending.url, '_blank'); },
     me: () => call('GET', '/me'),
     leaderboard: () => call('GET', '/leaderboard'),
-    submitDaily: (day, guesses) => call('POST', '/games/daily', { day, guesses }),
+    daily: () => call('GET', '/games/daily'),
+    dailyGuess: (id, day) => call('POST', '/games/daily/guess', { id, day }),
+    /** Image d'indice du perso du jour : adresse locale à libérer, ou null s'il n'y en a pas. */
+    async dailyHint() {
+      const res = await fetch(`${API}/games/daily/hint`, { headers: { Authorization: `Bearer ${readToken()}` } });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`Erreur ${res.status}`);
+      return URL.createObjectURL(await res.blob());
+    },
     async logout() {
       try { await call('POST', '/auth/logout'); } finally { writeToken(null); }
     },

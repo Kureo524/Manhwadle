@@ -8,16 +8,38 @@
 //   POST   /auth/logout             → ferme la session
 //   GET    /me                      → profil et statistiques du joueur
 //   DELETE /me                      → supprime le compte et toutes ses données
-//   POST   /games/daily             → enregistre la partie du jour (vérifiée par le serveur)
+//   POST   /games/daily             → ancienne route retirée : demande de mettre le jeu à jour
+//   GET    /games/daily             → partie du jour du joueur (reprise sur n'importe quel appareil)
+//   POST   /games/daily/guess       → enregistre un essai, renvoie sa comparaison
+//   POST   /games/daily/give-up     → abandonne la partie du jour
+//   GET    /games/daily/hint        → image d'indice, selon le nombre d'essais
 //   GET    /leaderboard             → classement des séries
 //
 // Authentification : en-tête « Authorization: Bearer <jeton> » (pas de cookie, donc pas de CSRF).
 import characters from '../../data/characters.json';
 import Logic from '../../src/logic.js';
-import { validateDailyGame, nextStats, liveStreak } from './game.js';
+import { nextStats, liveStreak, pickDailyId, guessResults, hintLevel, MAX_GUESSES, utcDay, addDays } from './game.js';
 
 const SESSION_DAYS = 90;
 const STATE_MINUTES = 10;
+const STATE_COOKIE = '__Host-manhwadle_state';
+const MAX_BODY = 8192;
+const LEADERBOARD_SECONDS = 60;
+const DAILY_KEEP_DAYS = 7; // durée de conservation du détail des essais
+const byId = new Map(characters.map((c) => [c.id, c]));
+
+// Limites de débit par route et par adresse IP (binding déclaré dans wrangler.toml).
+const LIMITS = {
+  'GET /auth/discord': 'LIMIT_AUTH',
+  'POST /auth/discord/confirm': 'LIMIT_AUTH',
+  'POST /auth/poll': 'LIMIT_POLL',
+  'POST /games/daily': 'LIMIT_API',
+  'GET /games/daily': 'LIMIT_API',
+  'POST /games/daily/guess': 'LIMIT_API',
+  'POST /games/daily/give-up': 'LIMIT_API',
+  'GET /games/daily/hint': 'LIMIT_API',
+  'GET /leaderboard': 'LIMIT_API',
+};
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -39,6 +61,31 @@ const sha256 = async (text) => {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 };
 const isoIn = (ms) => new Date(Date.now() + ms).toISOString();
+
+// Lit le corps avec une vraie limite : l'en-tête Content-Length peut être absent ou faux.
+async function readBody(request, max = MAX_BODY) {
+  const reader = request.body?.getReader();
+  if (!reader) return '';
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      throw Object.assign(new Error('Requête trop grande.'), { status: 413 });
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) { bytes.set(c, at); at += c.byteLength; }
+  return new TextDecoder().decode(bytes);
+}
+
+const readCookie = (request, name) => (request.headers.get('Cookie') ?? '').split(';')
+  .map((c) => c.trim()).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1) ?? null;
 
 async function currentUser(request, env) {
   const auth = request.headers.get('Authorization') ?? '';
@@ -83,8 +130,8 @@ async function login(request, env) {
 async function confirmLogin(request, env) {
   if (!env.DISCORD_CLIENT_ID) return fail('Connexion Discord non configurée.', 503);
   if (request.headers.get('Origin') !== new URL(request.url).origin) return fail('Origine refusée.', 403);
-  const poll = (await request.formData().catch(() => null))?.get('poll');
-  if (typeof poll !== 'string' || !POLL_HASH.test(poll)) return fail('Paramètre poll invalide.');
+  const poll = new URLSearchParams(await readBody(request)).get('poll');
+  if (poll === null || !POLL_HASH.test(poll)) return fail('Paramètre poll invalide.');
   return toDiscord(request, env, poll, 'consent', 303);
 }
 
@@ -97,7 +144,11 @@ async function toDiscord(request, env, poll, prompt, status = 302) {
     client_id: env.DISCORD_CLIENT_ID, response_type: 'code', scope: 'identify',
     redirect_uri: callbackUrl(request), state, prompt,
   });
-  return Response.redirect(url.href, status);
+  const headers = { Location: url.href };
+  // Site et appli de bureau : la session revient dans ce navigateur, le state lui est donc lié.
+  // Appli installée : la session ne revient qu'au détenteur du code secret.
+  if (!poll) headers['Set-Cookie'] = `${STATE_COOKIE}=${state}; Path=/; Max-Age=${STATE_MINUTES * 60}; HttpOnly; Secure; SameSite=Lax`;
+  return new Response(null, { status, headers });
 }
 
 const PAGE_STYLE = `body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0c0c12;color:#e8eefa;font:15px/1.6 system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
@@ -160,13 +211,20 @@ async function callback(request, env) {
   const pollHash = row?.poll_hash ?? null;
   // Site : retour vers la page avec #session= ou #login=. Appli installée : résultat mis de côté pour /auth/poll.
   const back = async (code, userId = null) => {
-    if (!pollHash) return Response.redirect(`${env.SITE_URL}#${code === 'ok' ? `session=${await newSession(env, userId)}` : `login=${code}`}`, 302);
+    if (!pollHash) {
+      const fragment = code === 'ok' ? `session=${await newSession(env, userId)}` : `login=${code}`;
+      return new Response(null, { status: 302, headers: {
+        Location: `${env.SITE_URL}#${fragment}`,
+        'Set-Cookie': `${STATE_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+      } });
+    }
     await env.DB.prepare('INSERT OR REPLACE INTO login_polls (poll_hash, user_id, error, expires_at) VALUES (?, ?, ?, ?)')
       .bind(pollHash, userId, code === 'ok' ? null : code, isoIn(STATE_MINUTES * 60e3)).run();
     return donePage(code);
   };
   if (params.get('error')) return back('annule');
   if (!row || row.expires_at < new Date().toISOString()) return back('expire');
+  if (!pollHash && readCookie(request, STATE_COOKIE) !== state) return back('expire');
 
   const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
     method: 'POST',
@@ -183,15 +241,22 @@ async function callback(request, env) {
   const me = await meRes.json();
   const name = String(me.global_name || me.username || 'Incarnation').slice(0, 40);
 
-  const now = new Date().toISOString();
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO users (id, name, avatar) VALUES (?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar`)
-      .bind(String(me.id), name, me.avatar ?? null),
-    env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ?').bind(now),
-    env.DB.prepare('DELETE FROM login_polls WHERE expires_at < ?').bind(now),
-  ]);
+  await env.DB.prepare(`INSERT INTO users (id, name, avatar) VALUES (?, ?, ?)
+                        ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar`)
+    .bind(String(me.id), name, me.avatar ?? null).run();
   return back('ok', String(me.id));
+}
+
+// Purge quotidienne (Cron Trigger) : tout ce qui est expiré, indépendamment des connexions.
+async function purgeExpired(env) {
+  const now = new Date().toISOString();
+  const oldDay = addDays(utcDay(), -DAILY_KEEP_DAYS);
+  await env.DB.batch([
+    ...['sessions', 'oauth_states', 'login_polls'].map((table) =>
+      env.DB.prepare(`DELETE FROM ${table} WHERE expires_at < ?`).bind(now)),
+    env.DB.prepare('DELETE FROM daily_guesses WHERE day < ?').bind(oldDay),
+    env.DB.prepare('DELETE FROM daily_targets WHERE day < ?').bind(oldDay),
+  ]);
 }
 
 // Nouvelle session : le jeton part chez le joueur, le serveur n'en garde que l'empreinte.
@@ -205,8 +270,8 @@ async function newSession(env, userId) {
 // Appli installée : { poll: <code secret> } → { pending: true } tant que la connexion n'est pas finie,
 // puis, une seule fois, { session } ou { error }.
 async function poll(request, env) {
-  if (Number(request.headers.get('Content-Length') ?? 0) > 1024) return fail('Requête trop grande.', 413);
-  const key = (await request.json().catch(() => ({})))?.poll;
+  let key;
+  try { key = JSON.parse(await readBody(request, 1024))?.poll; } catch (e) { if (e.status) throw e; }
   if (typeof key !== 'string' || !POLL_KEY.test(key)) return fail('Paramètre poll invalide.');
   const row = await env.DB.prepare('DELETE FROM login_polls WHERE poll_hash = ? AND expires_at > ? RETURNING user_id, error')
     .bind(await sha256(key), new Date().toISOString()).first();
@@ -215,23 +280,137 @@ async function poll(request, env) {
   return json({ session: await newSession(env, row.user_id) });
 }
 
+// ---------- Perso du jour (joué côté serveur) ----------
+// Le personnage est choisi par HMAC(secret, jour) puis figé en base : ajouter un personnage ou
+// redéployer en cours de journée ne le change pas. Le jour change à minuit UTC pour tout le monde.
+async function dailyTargetId(env, day) {
+  if (!env.DAILY_SECRET) throw Object.assign(new Error('Perso du jour non configuré.'), { status: 503 });
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.DAILY_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`manhwadle:${day}`));
+  await env.DB.prepare('INSERT OR IGNORE INTO daily_targets (day, character_id) VALUES (?, ?)')
+    .bind(day, pickDailyId(characters, digest)).run();
+  return (await env.DB.prepare('SELECT character_id FROM daily_targets WHERE day = ?').bind(day).first()).character_id;
+}
+
+async function dailyGuessIds(env, user, day) {
+  const { results } = await env.DB.prepare('SELECT character_id FROM daily_guesses WHERE user_id = ? AND day = ? ORDER BY position')
+    .bind(user.id, day).all();
+  return results.map((r) => r.character_id);
+}
+
+// État de la partie du jour. L'identité du personnage n'en fait partie qu'une fois la partie terminée.
+async function dailyState(env, user, now = Date.now()) {
+  const day = utcDay(now);
+  const targetId = await dailyTargetId(env, day);
+  const target = byId.get(targetId);
+  const ids = await dailyGuessIds(env, user, day);
+  const row = await env.DB.prepare('SELECT won FROM daily_games WHERE user_id = ? AND day = ?').bind(user.id, day).first();
+  // last_day après aujourd'hui : partie déjà comptée par une ancienne version de l'appli, sur son jour local.
+  const done = !!row || (!!user.last_day && user.last_day > day);
+  return {
+    day,
+    guesses: ids.map((id) => ({ id, results: guessResults(byId.get(id), target) })),
+    done,
+    won: !!row?.won,
+    target: done ? targetId : null,
+    hint: done ? 0 : hintLevel(ids.length),
+    profile: publicProfile(user),
+  };
+}
+
+async function readDailyBody(request) {
+  try {
+    return JSON.parse(await readBody(request)) ?? {};
+  } catch (e) {
+    if (e.status) throw e;
+    return {};
+  }
+}
+
+// Écrit l'essai éventuel et, si la partie se termine, le résultat et les statistiques, d'un seul bloc.
+async function finishDaily(env, user, day, count, won, extra = []) {
+  const next = nextStats(user, { day, guesses: count, won });
+  await env.DB.batch([
+    ...extra,
+    env.DB.prepare('INSERT INTO daily_games (user_id, day, guesses, won) VALUES (?, ?, ?, ?)').bind(user.id, day, count, won ? 1 : 0),
+    env.DB.prepare(`UPDATE users SET streak = ?, best = ?, played = ?, won = ?, guesses = ?, last_day = ?
+                    WHERE id = ? AND (last_day IS NULL OR last_day < ?)`)
+      .bind(next.streak, next.best, next.played, next.won, next.guesses, next.last_day, user.id, day),
+  ]).catch(() => { throw new Error('conflict'); });
+  return { ...user, ...next };
+}
+
+async function dailyGuess(request, env, user) {
+  const { id, day } = await readDailyBody(request);
+  const state = await dailyState(env, user);
+  if (day !== state.day) return json({ error: 'Le scénario du jour a changé.', code: 'day-changed' }, 409);
+  if (state.done) return fail('Scénario déjà joué.', 409);
+  if (typeof id !== 'string' || !byId.has(id)) return json({ error: 'Personnage inconnu : mets à jour le jeu.', code: 'update' }, 400);
+  if (state.guesses.some((g) => g.id === id)) return fail('Essai en double.', 409);
+  if (state.guesses.length >= MAX_GUESSES) return fail("Trop d'essais.", 409);
+
+  const insert = env.DB.prepare('INSERT INTO daily_guesses (user_id, day, position, character_id) VALUES (?, ?, ?, ?)')
+    .bind(user.id, state.day, state.guesses.length, id);
+  if (id === await dailyTargetId(env, state.day)) {
+    return json(await dailyState(env, await finishDaily(env, user, state.day, state.guesses.length + 1, true, [insert])));
+  }
+  await insert.run().catch(() => { throw new Error('conflict'); });
+  return json(await dailyState(env, user));
+}
+
+async function dailyGiveUp(request, env, user) {
+  const { day } = await readDailyBody(request);
+  const state = await dailyState(env, user);
+  if (day !== state.day) return json({ error: 'Le scénario du jour a changé.', code: 'day-changed' }, 409);
+  if (state.done) return fail('Scénario déjà joué.', 409);
+  return json(await dailyState(env, await finishDaily(env, user, state.day, state.guesses.length, false)));
+}
+
+// L'image passe par le Worker, à une adresse fixe : son nom ne dit rien du personnage.
+async function dailyHint(request, env, user) {
+  const day = utcDay();
+  const level = hintLevel((await dailyGuessIds(env, user, day)).length);
+  if (!level) return fail('Indice pas encore disponible.', 403);
+  const asset = await env.ASSETS.fetch(new URL(`/${await dailyTargetId(env, day)}-${level}.webp`, request.url));
+  if (!asset.ok) return fail("Pas d'indice pour ce scénario.", 404);
+  return new Response(asset.body, { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...CORS } });
+}
+
+async function leaderboard(request, env, ctx) {
+  const cache = caches.default;
+  const key = new Request(new URL('/leaderboard', request.url));
+  const cached = await cache.match(key);
+  if (cached) return cached;
+  const { results } = await env.DB.prepare(
+    `SELECT id, name, avatar, streak, best, played, won, guesses, last_day FROM users
+     WHERE played > 0 AND hidden = 0 ORDER BY best DESC, streak DESC, won DESC LIMIT 50`,
+  ).all();
+  const res = json({ players: results.map(publicProfile) });
+  res.headers.set('Cache-Control', `public, max-age=${LEADERBOARD_SECONDS}`);
+  ctx.waitUntil(cache.put(key, res.clone()));
+  return res;
+}
+
 // ---------- Routes ----------
-async function route(request, env) {
+async function route(request, env, ctx) {
   const { pathname } = new URL(request.url);
   const method = request.method;
+
+  const limiter = env[LIMITS[`${method} ${pathname}`]];
+  if (limiter) {
+    const ip = request.headers.get('CF-Connecting-IP') ?? 'local';
+    const { success } = await limiter.limit({ key: `${pathname}:${ip}` });
+    if (!success) return new Response(JSON.stringify({ error: 'Trop de requêtes, réessaie dans une minute.' }), {
+      status: 429, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60', ...CORS },
+    });
+  }
 
   if (method === 'GET' && pathname === '/auth/discord') return login(request, env);
   if (method === 'POST' && pathname === '/auth/discord/confirm') return confirmLogin(request, env);
   if (method === 'GET' && pathname === '/auth/discord/callback') return callback(request, env);
   if (method === 'POST' && pathname === '/auth/poll') return poll(request, env);
 
-  if (method === 'GET' && pathname === '/leaderboard') {
-    const { results } = await env.DB.prepare(
-      `SELECT id, name, avatar, streak, best, played, won, guesses, last_day FROM users
-       WHERE played > 0 ORDER BY best DESC, streak DESC, won DESC LIMIT 50`,
-    ).all();
-    return json({ players: results.map(publicProfile) });
-  }
+  if (method === 'GET' && pathname === '/leaderboard') return leaderboard(request, env, ctx);
 
   const user = await currentUser(request, env);
   if (!user) return fail('Connexion requise.', 401);
@@ -249,43 +428,35 @@ async function route(request, env) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM daily_games WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM daily_guesses WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
     ]);
     return json({ ok: true });
   }
 
-  if (method === 'POST' && pathname === '/games/daily') {
-    if (Number(request.headers.get('Content-Length') ?? 0) > 8192) return fail('Requête trop grande.', 413);
-    let game, next;
-    try {
-      game = validateDailyGame(await request.json(), characters);
-      next = nextStats(user, game);
-    } catch (e) {
-      return fail(e.message, e.message.startsWith('Scénario déjà joué') ? 409 : 400);
-    }
-    // La partie et les stats sont écrites ensemble ; la clé (joueur, jour) empêche tout doublon.
-    await env.DB.batch([
-      env.DB.prepare('INSERT INTO daily_games (user_id, day, guesses, won) VALUES (?, ?, ?, ?)')
-        .bind(user.id, game.day, game.guesses, game.won ? 1 : 0),
-      env.DB.prepare(`UPDATE users SET streak = ?, best = ?, played = ?, won = ?, guesses = ?, last_day = ?
-                      WHERE id = ? AND (last_day IS NULL OR last_day < ?)`)
-        .bind(next.streak, next.best, next.played, next.won, next.guesses, next.last_day, user.id, game.day),
-    ]).catch(() => { throw new Error('conflict'); });
-    return json(publicProfile({ ...user, ...next }));
-  }
+  if (method === 'GET' && pathname === '/games/daily') return json(await dailyState(env, user));
+  if (method === 'POST' && pathname === '/games/daily/guess') return dailyGuess(request, env, user);
+  if (method === 'POST' && pathname === '/games/daily/give-up') return dailyGiveUp(request, env, user);
+  if (method === 'GET' && pathname === '/games/daily/hint') return dailyHint(request, env, user);
+
+  if (method === 'POST' && pathname === '/games/daily') return json({ error: 'Mets le jeu à jour pour jouer au perso du jour.', code: 'update' }, 410);
 
   return fail('Route inconnue.', 404);
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     try {
-      return await route(request, env);
+      return await route(request, env, ctx);
     } catch (e) {
       if (e.message === 'conflict') return fail('Scénario déjà joué.', 409);
+      if (e.status === 413 || e.status === 503) return fail(e.message, e.status);
       console.error(e);
       return fail('Erreur interne.', 500);
     }
+  },
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(purgeExpired(env));
   },
 };

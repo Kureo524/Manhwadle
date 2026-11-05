@@ -7,7 +7,7 @@
 **▶ [Jouer dans le navigateur](https://kureo524.github.io/Manhwadle/)** ·
 **[Télécharger](https://github.com/Kureo524/Manhwadle/releases/latest)** (Windows, macOS, Linux)
 
-**Sur téléphone :** ouvre le lien dans le navigateur puis « Ajouter à l'écran d'accueil » (Android : menu ⋮ → *Installer l'application* ; iPhone : Partager → *Sur l'écran d'accueil*). Le jeu s'installe comme une appli et se joue hors ligne.
+**Sur téléphone :** ouvre le lien dans le navigateur puis « Ajouter à l'écran d'accueil » (Android : menu ⋮ → *Installer l'application* ; iPhone : Partager → *Sur l'écran d'accueil*). Le jeu s'installe comme une appli ; le mode Infini se joue hors ligne.
 
 > **In English —** Manhwadle is a daily character-guessing game (Wordle-like) set in five Korean web novels / webtoons.
 > Each guess is compared to the mystery character across 9 categories. It ships as a desktop app (Electron, sandboxed,
@@ -43,7 +43,7 @@ un personnage de manhwa. À chaque essai, ton personnage est comparé au personn
 Deux modes, présentés comme des scénarios du Star Stream :
 
 - **Scénario principal — Le personnage du jour** : la même incarnation pour tout le monde, tirée parmi
-  les 107. Le temps limite est minuit, heure locale.
+  les 107. Le temps limite est minuit UTC.
 - **Scénario secondaire — Incarnation inconnue** : mode infini. Tu choisis les histoires en jeu ;
   plus il y en a, plus la difficulté monte (de D à S).
 
@@ -61,9 +61,11 @@ partie (fenêtre de scénario et essais) dans l'appli de bureau, ou une grille d
 défaut). « FR · EN », en bas de page, change de langue. Les noms des personnages et des manhwa ne sont
 pas traduits.
 
-**Compte** : l'onglet « Compte » connecte le jeu à Discord. La série du perso du jour est alors vérifiée
-par le serveur, retrouvée sur le site comme dans l'appli, et inscrite à l'onglet « Classement ». Sans compte,
-tout reste sur l'appareil.
+**Compte** : le perso du jour se joue avec un compte Discord et demande du réseau. Le serveur choisit le
+personnage, reçoit les essais un par un et décide du résultat : la réponse n'arrive sur l'appareil qu'en fin de
+partie, et la partie suit le joueur du site à l'appli. Le jour change à minuit UTC pour tout le monde. Sans compte
+ou hors ligne, le mode Infini reste libre. Limite assumée : un second compte peut toujours découvrir la réponse,
+comme sur tout jeu de ce type.
 
 **Récompense** : 1 000 pièces au premier essai, puis 100 de moins par essai supplémentaire
 (100 au minimum). Les pièces s'additionnent dans tes statistiques.
