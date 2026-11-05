@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test test/logic.test.js",
+    "lint": "eslint .",
     "dist": "electron-builder --linux AppImage",
     "portraits:galerie": "node tools/portraits.mjs galerie",
     "portraits:import": "node tools/portraits.mjs import",
@@ -65,8 +66,11 @@
     "icon": "build/icon.png"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "electron": "^45.2.2",
-    "electron-builder": "^26.18.0"
+    "electron-builder": "^26.18.0",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0"
   },
   "allowScripts": {
     "electron@45.2.2": true

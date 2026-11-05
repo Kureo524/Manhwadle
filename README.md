@@ -2,6 +2,7 @@
 
 [![Jouer dans le navigateur](https://img.shields.io/badge/jouer-dans_le_navigateur-8aa8e0)](https://kureo524.github.io/Manhwadle/)
 [![Release](https://img.shields.io/github/v/release/Kureo524/Manhwadle?label=release&color=a597c0)](https://github.com/Kureo524/Manhwadle/releases/latest)
+[![Tests](https://github.com/Kureo524/Manhwadle/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/Kureo524/Manhwadle/actions/workflows/ci.yml)
 [![Builds](https://github.com/Kureo524/Manhwadle/actions/workflows/release.yml/badge.svg)](https://github.com/Kureo524/Manhwadle/actions/workflows/release.yml)
 
 **▶ [Jouer dans le navigateur](https://kureo524.github.io/Manhwadle/)** ·
