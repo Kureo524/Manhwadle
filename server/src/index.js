@@ -18,6 +18,17 @@ import { validateDailyGame, nextStats, liveStreak } from './game.js';
 
 const SESSION_DAYS = 90;
 const STATE_MINUTES = 10;
+const STATE_COOKIE = '__Host-manhwadle_state';
+const MAX_BODY = 8192;
+
+// Limites de débit par route et par adresse IP (binding déclaré dans wrangler.toml).
+const LIMITS = {
+  'GET /auth/discord': 'LIMIT_AUTH',
+  'POST /auth/discord/confirm': 'LIMIT_AUTH',
+  'POST /auth/poll': 'LIMIT_POLL',
+  'POST /games/daily': 'LIMIT_API',
+  'GET /leaderboard': 'LIMIT_API',
+};
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -39,6 +50,31 @@ const sha256 = async (text) => {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 };
 const isoIn = (ms) => new Date(Date.now() + ms).toISOString();
+
+// Lit le corps avec une vraie limite : l'en-tête Content-Length peut être absent ou faux.
+async function readBody(request, max = MAX_BODY) {
+  const reader = request.body?.getReader();
+  if (!reader) return '';
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      throw Object.assign(new Error('Requête trop grande.'), { status: 413 });
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) { bytes.set(c, at); at += c.byteLength; }
+  return new TextDecoder().decode(bytes);
+}
+
+const readCookie = (request, name) => (request.headers.get('Cookie') ?? '').split(';')
+  .map((c) => c.trim()).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1) ?? null;
 
 async function currentUser(request, env) {
   const auth = request.headers.get('Authorization') ?? '';
@@ -83,8 +119,8 @@ async function login(request, env) {
 async function confirmLogin(request, env) {
   if (!env.DISCORD_CLIENT_ID) return fail('Connexion Discord non configurée.', 503);
   if (request.headers.get('Origin') !== new URL(request.url).origin) return fail('Origine refusée.', 403);
-  const poll = (await request.formData().catch(() => null))?.get('poll');
-  if (typeof poll !== 'string' || !POLL_HASH.test(poll)) return fail('Paramètre poll invalide.');
+  const poll = new URLSearchParams(await readBody(request)).get('poll');
+  if (poll === null || !POLL_HASH.test(poll)) return fail('Paramètre poll invalide.');
   return toDiscord(request, env, poll, 'consent', 303);
 }
 
@@ -97,7 +133,11 @@ async function toDiscord(request, env, poll, prompt, status = 302) {
     client_id: env.DISCORD_CLIENT_ID, response_type: 'code', scope: 'identify',
     redirect_uri: callbackUrl(request), state, prompt,
   });
-  return Response.redirect(url.href, status);
+  const headers = { Location: url.href };
+  // Site et appli de bureau : la session revient dans ce navigateur, le state lui est donc lié.
+  // Appli installée : la session ne revient qu'au détenteur du code secret.
+  if (!poll) headers['Set-Cookie'] = `${STATE_COOKIE}=${state}; Path=/; Max-Age=${STATE_MINUTES * 60}; HttpOnly; Secure; SameSite=Lax`;
+  return new Response(null, { status, headers });
 }
 
 const PAGE_STYLE = `body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0c0c12;color:#e8eefa;font:15px/1.6 system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
@@ -160,13 +200,20 @@ async function callback(request, env) {
   const pollHash = row?.poll_hash ?? null;
   // Site : retour vers la page avec #session= ou #login=. Appli installée : résultat mis de côté pour /auth/poll.
   const back = async (code, userId = null) => {
-    if (!pollHash) return Response.redirect(`${env.SITE_URL}#${code === 'ok' ? `session=${await newSession(env, userId)}` : `login=${code}`}`, 302);
+    if (!pollHash) {
+      const fragment = code === 'ok' ? `session=${await newSession(env, userId)}` : `login=${code}`;
+      return new Response(null, { status: 302, headers: {
+        Location: `${env.SITE_URL}#${fragment}`,
+        'Set-Cookie': `${STATE_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+      } });
+    }
     await env.DB.prepare('INSERT OR REPLACE INTO login_polls (poll_hash, user_id, error, expires_at) VALUES (?, ?, ?, ?)')
       .bind(pollHash, userId, code === 'ok' ? null : code, isoIn(STATE_MINUTES * 60e3)).run();
     return donePage(code);
   };
   if (params.get('error')) return back('annule');
   if (!row || row.expires_at < new Date().toISOString()) return back('expire');
+  if (!pollHash && readCookie(request, STATE_COOKIE) !== state) return back('expire');
 
   const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
     method: 'POST',
@@ -183,15 +230,17 @@ async function callback(request, env) {
   const me = await meRes.json();
   const name = String(me.global_name || me.username || 'Incarnation').slice(0, 40);
 
-  const now = new Date().toISOString();
-  await env.DB.batch([
-    env.DB.prepare(`INSERT INTO users (id, name, avatar) VALUES (?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar`)
-      .bind(String(me.id), name, me.avatar ?? null),
-    env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ?').bind(now),
-    env.DB.prepare('DELETE FROM login_polls WHERE expires_at < ?').bind(now),
-  ]);
+  await env.DB.prepare(`INSERT INTO users (id, name, avatar) VALUES (?, ?, ?)
+                        ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar`)
+    .bind(String(me.id), name, me.avatar ?? null).run();
   return back('ok', String(me.id));
+}
+
+// Purge quotidienne (Cron Trigger) : tout ce qui est expiré, indépendamment des connexions.
+async function purgeExpired(env) {
+  const now = new Date().toISOString();
+  await env.DB.batch(['sessions', 'oauth_states', 'login_polls'].map((table) =>
+    env.DB.prepare(`DELETE FROM ${table} WHERE expires_at < ?`).bind(now)));
 }
 
 // Nouvelle session : le jeton part chez le joueur, le serveur n'en garde que l'empreinte.
@@ -205,8 +254,8 @@ async function newSession(env, userId) {
 // Appli installée : { poll: <code secret> } → { pending: true } tant que la connexion n'est pas finie,
 // puis, une seule fois, { session } ou { error }.
 async function poll(request, env) {
-  if (Number(request.headers.get('Content-Length') ?? 0) > 1024) return fail('Requête trop grande.', 413);
-  const key = (await request.json().catch(() => ({})))?.poll;
+  let key;
+  try { key = JSON.parse(await readBody(request, 1024))?.poll; } catch (e) { if (e.status) throw e; }
   if (typeof key !== 'string' || !POLL_KEY.test(key)) return fail('Paramètre poll invalide.');
   const row = await env.DB.prepare('DELETE FROM login_polls WHERE poll_hash = ? AND expires_at > ? RETURNING user_id, error')
     .bind(await sha256(key), new Date().toISOString()).first();
@@ -219,6 +268,15 @@ async function poll(request, env) {
 async function route(request, env) {
   const { pathname } = new URL(request.url);
   const method = request.method;
+
+  const limiter = env[LIMITS[`${method} ${pathname}`]];
+  if (limiter) {
+    const ip = request.headers.get('CF-Connecting-IP') ?? 'local';
+    const { success } = await limiter.limit({ key: `${pathname}:${ip}` });
+    if (!success) return new Response(JSON.stringify({ error: 'Trop de requêtes, réessaie dans une minute.' }), {
+      status: 429, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60', ...CORS },
+    });
+  }
 
   if (method === 'GET' && pathname === '/auth/discord') return login(request, env);
   if (method === 'POST' && pathname === '/auth/discord/confirm') return confirmLogin(request, env);
@@ -255,10 +313,10 @@ async function route(request, env) {
   }
 
   if (method === 'POST' && pathname === '/games/daily') {
-    if (Number(request.headers.get('Content-Length') ?? 0) > 8192) return fail('Requête trop grande.', 413);
+    const body = await readBody(request);
     let game, next;
     try {
-      game = validateDailyGame(await request.json(), characters);
+      game = validateDailyGame(JSON.parse(body), characters);
       next = nextStats(user, game);
     } catch (e) {
       return fail(e.message, e.message.startsWith('Scénario déjà joué') ? 409 : 400);
@@ -284,8 +342,12 @@ export default {
       return await route(request, env);
     } catch (e) {
       if (e.message === 'conflict') return fail('Scénario déjà joué.', 409);
+      if (e.status === 413) return fail(e.message, 413);
       console.error(e);
       return fail('Erreur interne.', 500);
     }
+  },
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(purgeExpired(env));
   },
 };
