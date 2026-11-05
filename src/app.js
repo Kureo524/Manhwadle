@@ -52,6 +52,7 @@
   const loginNotice = online?.takeNotice();
   let accountMsg = loginNotice ? t(`login.${loginNotice}`) : '';
   let loggingIn = false;
+  let loginCodeShown = null; // appli installée : code à comparer avant d'ouvrir la page Discord
   let confirmDelete = false;
 
   const poolFor = (m) => (m === 'daily' ? characters : characters.filter((c) => enabled.has(c.manhwa)));
@@ -208,17 +209,19 @@
 
   async function login() {
     // Déjà en cours : on ramène la fenêtre Discord au premier plan (appli).
-    // Appli installée sur téléphone : on rouvre la page Discord.
-    if (loggingIn) { if (window.manhwadle.login) window.manhwadle.login(); else online.reopenLogin(); return; }
+    // Appli installée sur téléphone : on ouvre la page Discord.
+    if (loggingIn) { if (window.manhwadle.login) window.manhwadle.login(); else online.openLoginPage(); return; }
     loggingIn = true;
     accountMsg = t(typeof window.manhwadle.login === 'function' ? 'msg.loginWindow' : 'msg.loginRedirect');
     view = 'account';
     render();
     const error = await online.login((code) => {
-      accountMsg = t('msg.loginApp', { code });
+      loginCodeShown = code;
+      accountMsg = '';
       renderView();
     });
     loggingIn = false;
+    loginCodeShown = null;
     accountMsg = error ? t(`login.${error}`) : '';
     if (error) { renderAccount(); renderView(); return; }
     setView('account');
@@ -739,6 +742,18 @@
       ), ...msg, note);
     }
     if (online.signedIn) return panel(t('acc.titleOut'), el('p', 'panel__text', t('acc.connectingServer')), ...msg);
+    // Appli installée : le code d'abord, car la page Discord s'ouvre par-dessus l'appli.
+    if (loginCodeShown) {
+      return panel(t('acc.titleOut'),
+        el('p', 'panel__text', t('acc.codeIntro')),
+        el('p', 'login-code system', loginCodeShown),
+        actionsOf(
+          button('link link--strong', t('acc.openDiscord'), () => online.openLoginPage()),
+          button('link', t('acc.cancel'), () => online.cancelLoginPage()),
+        ),
+        el('p', 'panel__note', t('acc.codeAfter')),
+      );
+    }
     return panel(t('acc.titleOut'),
       el('p', 'panel__text', t('acc.intro')),
       actionsOf(
