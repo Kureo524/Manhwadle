@@ -197,38 +197,9 @@
     const privacy = el('a', '', t('acc.privacy'));
     privacy.href = `${SITE_URL}privacy.html`; privacy.target = '_blank'; privacy.rel = 'noopener';
     note.append(' ', privacy);
-    if (S.profile) {
-      const who = el('div', 'panel__who');
-      const txt = el('div');
-      txt.append(el('div', 'panel__name', S.profile.name), el('div', 'panel__sub', t('acc.sub')));
-      who.append(avatar(S.profile, 'md'), txt);
-      return panel(t('acc.titleIn'), who, rows([
-        [t('acc.streak'), t('acc.days', { n: S.profile.streak }), S.profile.streak],
-        [t('acc.best'), t('acc.days', { n: S.profile.best }), S.profile.best],
-        [t('acc.won'), t('acc.outOf', { n: S.profile.played }), S.profile.won],
-        [t('acc.avg'), S.profile.won ? I.decimal(S.profile.guesses / S.profile.won) : '–'],
-        [t('acc.last'), S.profile.lastDay ? t('acc.lastValue', { n: L.dayNumber(S.profile.lastDay), date: I.date(S.profile.lastDay) }) : t('acc.never')],
-      ]), actionsOf(
-        button('link', t(S.profile.showOnBoard === false ? 'acc.boardOff' : 'acc.boardOn'), toggleBoard),
-        button('link', t('acc.export'), exportData),
-        button('link link--strong', t('acc.logout'), logout),
-        button('link', t('acc.logoutAll'), logoutAll),
-        button('link link--danger', S.confirmDelete ? t('acc.deleteConfirm') : t('acc.delete'), deleteAccount),
-      ), ...msg, note);
-    }
+    if (S.profile) return profilePanel(msg, note);
     if (online.signedIn) return panel(t('acc.titleOut'), el('p', 'panel__text', t('acc.connectingServer')), ...msg);
-    // Appli installée : le code d'abord, car la page Discord s'ouvre par-dessus l'appli.
-    if (S.loginCodeShown) {
-      return panel(t('acc.titleOut'),
-        el('p', 'panel__text', t('acc.codeIntro')),
-        el('p', 'login-code system', S.loginCodeShown),
-        actionsOf(
-          button('link link--strong', t('acc.openDiscord'), () => online.openLoginPage()),
-          button('link', t('acc.cancel'), () => online.cancelLoginPage()),
-        ),
-        el('p', 'panel__note', t('acc.codeAfter')),
-      );
-    }
+    if (S.loginCodeShown) return loginCodePanel();
     return panel(t('acc.titleOut'),
       el('p', 'panel__text', t('acc.intro')),
       actionsOf(
@@ -238,6 +209,40 @@
           ? [button('link', t('acc.cancel'), () => window.manhwadle.cancelLogin())] : []),
       ),
       ...msg, note);
+  }
+
+  function profilePanel(msg, note) {
+    const p = S.profile;
+    const who = el('div', 'panel__who');
+    const txt = el('div');
+    txt.append(el('div', 'panel__name', p.name), el('div', 'panel__sub', t('acc.sub')));
+    who.append(avatar(p, 'md'), txt);
+    return panel(t('acc.titleIn'), who, rows([
+      [t('acc.streak'), t('acc.days', { n: p.streak }), p.streak],
+      [t('acc.best'), t('acc.days', { n: p.best }), p.best],
+      [t('acc.won'), t('acc.outOf', { n: p.played }), p.won],
+      [t('acc.avg'), p.won ? I.decimal(p.guesses / p.won) : '–'],
+      [t('acc.last'), p.lastDay ? t('acc.lastValue', { n: L.dayNumber(p.lastDay), date: I.date(p.lastDay) }) : t('acc.never')],
+    ]), actionsOf(
+      button('link', t(p.showOnBoard === false ? 'acc.boardOff' : 'acc.boardOn'), toggleBoard),
+      button('link', t('acc.export'), exportData),
+      button('link link--strong', t('acc.logout'), logout),
+      button('link', t('acc.logoutAll'), logoutAll),
+      button('link link--danger', S.confirmDelete ? t('acc.deleteConfirm') : t('acc.delete'), deleteAccount),
+    ), ...msg, note);
+  }
+
+  // Appli installée : le code d'abord, car la page Discord s'ouvre par-dessus l'appli.
+  function loginCodePanel() {
+    return panel(t('acc.titleOut'),
+      el('p', 'panel__text', t('acc.codeIntro')),
+      el('p', 'login-code system', S.loginCodeShown),
+      actionsOf(
+        button('link link--strong', t('acc.openDiscord'), () => online.openLoginPage()),
+        button('link', t('acc.cancel'), () => online.cancelLoginPage()),
+      ),
+      el('p', 'panel__note', t('acc.codeAfter')),
+    );
   }
 
   function rankingView() {

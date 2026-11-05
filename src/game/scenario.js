@@ -118,77 +118,92 @@
     const box = $('scenario');
     box.replaceChildren();
     if (S.mode === 'daily' && S.dailyStatus !== 'ready') { renderDailyGate(box); return; }
-    const n = S.game.guesses.length;
-    const pool = poolFor(S.mode);
     const main = el('div');
     const side = el('div', 'scenario__side');
-
-    if (S.game.done) {
-      const target = S.game.target ?? { name: '???', manhwa: null };
-      main.append(el('h2', 'scenario__title', S.game.won ? t('sc.won') : t('sc.lost')));
-      const res = el('div', 'result');
-      const txt = el('div');
-      txt.append(el('div', 'result__name', target.name), el('div', 'result__manhwa', manhwaById.get(target.manhwa)?.title ?? ''));
-      res.append(txt);
-      main.append(res);
-      main.append(rows([
-        [t('sc.guesses'), '', n],
-        [t('sc.reward'), S.game.won ? t('sc.coins') : t('sc.noReward'), S.game.won ? I.integer(reward(n)) : undefined],
-        ...(S.mode === 'daily' ? [streakRow(), [t('sc.next'), t('sc.in', { time: untilMidnight() })]] : []),
-      ]));
-      const actions = el('div', 'scenario__actions');
-      const share = el('button', 'link link--strong', t('sc.share'));
-      share.addEventListener('click', async () => {
-        // Appli de bureau : image de la zone de jeu. Navigateur : texte (une page ne peut pas se capturer).
-        if (typeof window.manhwadle.shareImage === 'function') {
-          A.closeSuggestions();
-          share.textContent = (await window.manhwadle.shareImage()) ? t('sc.imageCopied') : t('sc.copyFailed');
-          setTimeout(() => { share.textContent = t('sc.share'); }, 1800);
-          return;
-        }
-        const text = L.shareText({
-          daily: S.mode === 'daily', day: S.game.day, won: S.game.won, streak: dailyStreak(), url: SITE_URL, lang: I.lang,
-          rows: S.game.guesses.map((id) => A.resultsFor(id).map((r) => r.state)),
-        });
-        share.textContent = (await copyText(text)) ? t('sc.textCopied') : t('sc.copyFailed');
-        setTimeout(() => { share.textContent = t('sc.share'); }, 1800);
-      });
-      actions.append(share);
-      if (S.mode === 'endless') {
-        const again = el('button', 'link link--strong', t('sc.nextScenario'));
-        again.addEventListener('click', () => { A.newEndlessGame(); A.render(); $('search').focus(); });
-        actions.append(again);
-      }
-      main.append(actions);
-      side.append(A.portrait(target, 'lg'));
-    } else {
-      const level = S.mode === 'daily' ? 'A' : DIFFICULTY[Math.min(S.enabled.size, DIFFICULTY.length - 1)];
-      main.append(el('h2', 'scenario__title', S.mode === 'daily' ? t('sc.titleDaily') : t('sc.titleEndless')));
-      main.append(rows([
-        [t('sc.category'), S.mode === 'daily' ? t('sc.main') : t('sc.side')],
-        [t('sc.difficulty'), level],
-        [t('sc.goal'), t('sc.goalText', { n: pool.length })],
-        [t('sc.timeLimit'), S.mode === 'daily' ? t('sc.untilMidnight', { time: untilMidnight() }) : t('sc.none')],
-        [t('sc.reward'), t('sc.coins'), I.integer(reward(n + 1))],
-        ...(S.mode === 'daily' ? [streakRow()] : []),
-        [t('sc.failure'), S.mode === 'daily' ? '???' : t('sc.giveUp')],
-      ]));
-      if (n >= HINT_AT) {
-        if (S.mode === 'daily') dailyHintImage(side);
-        else {
-          const p = A.portrait(S.game.target, 'lg');
-          p.classList.add('hint__img');
-          p.style.setProperty('--blur', n >= HINT_CLEAR_AT ? '6px' : '14px');
-          side.append(p);
-        }
-        const noImage = S.mode === 'daily' && S.dailyHint?.url === null;
-        side.append(el('div', 'scenario__note system', noImage ? t('hint.none') : n >= HINT_CLEAR_AT ? t('hint.clear') : t('hint.blurry', { at: HINT_CLEAR_AT })));
-      } else {
-        const left = HINT_AT - n;
-        side.append(el('div', 'hint__locked', left), el('div', 'scenario__note system', t('hint.locked', { n: left })));
-      }
-    }
+    if (S.game.done) renderFinished(main, side);
+    else renderRunning(main, side);
     box.append(main, side);
+  }
+
+  // Partie terminée : le personnage, le résultat et le partage.
+  function renderFinished(main, side) {
+    const n = S.game.guesses.length;
+    const target = S.game.target ?? { name: '???', manhwa: null };
+    main.append(el('h2', 'scenario__title', S.game.won ? t('sc.won') : t('sc.lost')));
+    const res = el('div', 'result');
+    const txt = el('div');
+    txt.append(el('div', 'result__name', target.name), el('div', 'result__manhwa', manhwaById.get(target.manhwa)?.title ?? ''));
+    res.append(txt);
+    main.append(res);
+    main.append(rows([
+      [t('sc.guesses'), '', n],
+      [t('sc.reward'), S.game.won ? t('sc.coins') : t('sc.noReward'), S.game.won ? I.integer(reward(n)) : undefined],
+      ...(S.mode === 'daily' ? [streakRow(), [t('sc.next'), t('sc.in', { time: untilMidnight() })]] : []),
+    ]));
+    const actions = el('div', 'scenario__actions');
+    actions.append(shareButton());
+    if (S.mode === 'endless') {
+      const again = el('button', 'link link--strong', t('sc.nextScenario'));
+      again.addEventListener('click', () => { A.newEndlessGame(); A.render(); $('search').focus(); });
+      actions.append(again);
+    }
+    main.append(actions);
+    side.append(A.portrait(target, 'lg'));
+  }
+
+  function shareButton() {
+    const share = el('button', 'link link--strong', t('sc.share'));
+    share.addEventListener('click', async () => {
+      // Appli de bureau : image de la zone de jeu. Navigateur : texte (une page ne peut pas se capturer).
+      if (typeof window.manhwadle.shareImage === 'function') {
+        A.closeSuggestions();
+        share.textContent = (await window.manhwadle.shareImage()) ? t('sc.imageCopied') : t('sc.copyFailed');
+        setTimeout(() => { share.textContent = t('sc.share'); }, 1800);
+        return;
+      }
+      const text = L.shareText({
+        daily: S.mode === 'daily', day: S.game.day, won: S.game.won, streak: dailyStreak(), url: SITE_URL, lang: I.lang,
+        rows: S.game.guesses.map((id) => A.resultsFor(id).map((r) => r.state)),
+      });
+      share.textContent = (await copyText(text)) ? t('sc.textCopied') : t('sc.copyFailed');
+      setTimeout(() => { share.textContent = t('sc.share'); }, 1800);
+    });
+    return share;
+  }
+
+  // Partie en cours : les conditions du scénario et l'indice.
+  function renderRunning(main, side) {
+    const n = S.game.guesses.length;
+    const pool = poolFor(S.mode);
+    const level = S.mode === 'daily' ? 'A' : DIFFICULTY[Math.min(S.enabled.size, DIFFICULTY.length - 1)];
+    main.append(el('h2', 'scenario__title', S.mode === 'daily' ? t('sc.titleDaily') : t('sc.titleEndless')));
+    main.append(rows([
+      [t('sc.category'), S.mode === 'daily' ? t('sc.main') : t('sc.side')],
+      [t('sc.difficulty'), level],
+      [t('sc.goal'), t('sc.goalText', { n: pool.length })],
+      [t('sc.timeLimit'), S.mode === 'daily' ? t('sc.untilMidnight', { time: untilMidnight() }) : t('sc.none')],
+      [t('sc.reward'), t('sc.coins'), I.integer(reward(n + 1))],
+      ...(S.mode === 'daily' ? [streakRow()] : []),
+      [t('sc.failure'), S.mode === 'daily' ? '???' : t('sc.giveUp')],
+    ]));
+    renderHint(side, n);
+  }
+
+  function renderHint(side, n) {
+    if (n < HINT_AT) {
+      const left = HINT_AT - n;
+      side.append(el('div', 'hint__locked', left), el('div', 'scenario__note system', t('hint.locked', { n: left })));
+      return;
+    }
+    if (S.mode === 'daily') dailyHintImage(side);
+    else {
+      const p = A.portrait(S.game.target, 'lg');
+      p.classList.add('hint__img');
+      p.style.setProperty('--blur', n >= HINT_CLEAR_AT ? '6px' : '14px');
+      side.append(p);
+    }
+    const noImage = S.mode === 'daily' && S.dailyHint?.url === null;
+    side.append(el('div', 'scenario__note system', noImage ? t('hint.none') : n >= HINT_CLEAR_AT ? t('hint.clear') : t('hint.blurry', { at: HINT_CLEAR_AT })));
   }
 
   function untilMidnight() {

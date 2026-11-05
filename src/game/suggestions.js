@@ -28,43 +28,48 @@
     const guessed = new Set(S.game.guesses);
     const inPool = manhwas.filter((m) => pool.some((c) => c.manhwa === m.id));
     const q = L.parseQuery(input.value, inPool);
-    let header = null;
-    if (q.choices) {
-      suggestionList = q.choices.map((m) => ({ manhwa: m }));
-      header = t('sugg.filter');
-    } else {
-      const chars = L.search(pool, q.text, guessed, q.manhwa ? Infinity : 8, q.manhwa?.id ?? null);
-      suggestionList = chars.map((c) => ({ char: c }));
-      if (q.manhwa) header = t('sugg.count', { title: q.manhwa.title, n: chars.length });
-    }
+    const header = fillSuggestions(q, pool, guessed);
     active = Math.min(active, Math.max(suggestionList.length - 1, 0));
     box.replaceChildren();
     const list = el('div', 'suggestions__list');
     box.append(list);
     if (header) list.append(el('div', 'suggestions__header system', `[${header}]`));
     if (!suggestionList.length) list.append(el('div', 'suggestions__empty', q.choices ? t('sugg.noManhwa') : t('sugg.noChar')));
-    suggestionList.forEach((item, i) => {
-      const b = el('button', `suggestion ${i === active ? 'is-active' : ''}`);
-      b.setAttribute('role', 'option');
-      if (item.char) {
-        const c = item.char;
-        const txt = el('span', 'suggestion__text');
-        txt.append(el('span', 'suggestion__name', c.name), el('span', 'suggestion__sub', manhwaById.get(c.manhwa).title));
-        b.append(A.portrait(c, 'md'), txt);
-      } else {
-        const m = item.manhwa;
-        const left = pool.filter((c) => c.manhwa === m.id && !guessed.has(c.id)).length;
-        b.append(el('span', 'suggestion__tag', `@${m.short.replace(/\.$/, '')}`), el('span', 'suggestion__name', m.title), el('span', 'suggestion__meta', t('sugg.left', { n: left })));
-      }
-      b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(item); });
-      b.addEventListener('mouseenter', () => { active = i; highlight(); });
-      list.append(b);
-    });
+    suggestionList.forEach((item, i) => list.append(suggestionButton(item, i, pool, guessed)));
     // Grand aperçu du personnage surligné, à droite de la liste.
     if (suggestionList.some((x) => x.char)) box.append(el('div', 'suggestions__preview'));
     renderPreview();
     box.hidden = false;
     placeSuggestions();
+  }
+
+  // Remplit la liste selon la recherche, et renvoie son en-tête éventuel.
+  function fillSuggestions(q, pool, guessed) {
+    if (q.choices) {
+      suggestionList = q.choices.map((m) => ({ manhwa: m }));
+      return t('sugg.filter');
+    }
+    const chars = L.search(pool, q.text, guessed, q.manhwa ? Infinity : 8, q.manhwa?.id ?? null);
+    suggestionList = chars.map((c) => ({ char: c }));
+    return q.manhwa ? t('sugg.count', { title: q.manhwa.title, n: chars.length }) : null;
+  }
+
+  function suggestionButton(item, i, pool, guessed) {
+    const b = el('button', `suggestion ${i === active ? 'is-active' : ''}`);
+    b.setAttribute('role', 'option');
+    if (item.char) {
+      const c = item.char;
+      const txt = el('span', 'suggestion__text');
+      txt.append(el('span', 'suggestion__name', c.name), el('span', 'suggestion__sub', manhwaById.get(c.manhwa).title));
+      b.append(A.portrait(c, 'md'), txt);
+    } else {
+      const m = item.manhwa;
+      const left = pool.filter((c) => c.manhwa === m.id && !guessed.has(c.id)).length;
+      b.append(el('span', 'suggestion__tag', `@${m.short.replace(/\.$/, '')}`), el('span', 'suggestion__name', m.title), el('span', 'suggestion__meta', t('sugg.left', { n: left })));
+    }
+    b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(item); });
+    b.addEventListener('mouseenter', () => { active = i; highlight(); });
+    return b;
   }
 
   // La liste est posée en position fixe sous le champ : on la recale quand la page défile,
