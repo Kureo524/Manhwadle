@@ -7,6 +7,8 @@
 **▶ [Jouer dans le navigateur](https://kureo524.github.io/Manhwadle/)** ·
 **[Télécharger](https://github.com/Kureo524/Manhwadle/releases/latest)** (Windows, macOS, Linux)
 
+**Sur téléphone :** ouvre le lien dans le navigateur puis « Ajouter à l'écran d'accueil » (Android : menu ⋮ → *Installer l'application* ; iPhone : Partager → *Sur l'écran d'accueil*). Le jeu s'installe comme une appli et se joue hors ligne.
+
 > **In English —** Manhwadle is a daily character-guessing game (Wordle-like) set in five Korean web novels / webtoons.
 > Each guess is compared to the mystery character across 9 categories. It ships as a desktop app (Electron, sandboxed,
 > built for Windows, macOS and Linux by GitHub Actions) and as a browser version on GitHub Pages. The UI is an original
@@ -120,7 +122,7 @@ Le jeu l'interprète librement, dans l'ambiance d'ORV :
 | **UI / DA** | Direction artistique originale « Verre d'encre », réinterprétée façon fenêtres système d'ORV : fenêtre transparente sous Hyprland, ciel de constellations animé en canvas, reflet du curseur, réactions des constellations |
 | **Application** | Electron 45 en bac à sable (données via IPC, navigation bloquée, permissions refusées, fuses), une seule page partagée avec la version web |
 | **Serveur** | API serverless Cloudflare Workers + D1 (SQLite) : connexion Discord OAuth2, sessions par jeton dont seul le SHA-256 est stocké, partie du jour **recalculée côté serveur** à partir de la même `src/logic.js` (impossible de tricher sur sa série), classement, suppression du compte |
-| **CI / livraison** | GitHub Actions : builds natifs Windows / macOS / Linux sur chaque PR, publication des binaires et de leurs empreintes SHA-256 sur tag, déploiement GitHub Pages ; actions épinglées par SHA |
+| **CI / livraison** | GitHub Actions : builds natifs Windows / macOS / Linux sur chaque PR, publication des binaires et de leurs empreintes SHA-256 sur tag, déploiement GitHub Pages (PWA installable, service worker hors ligne) ; actions épinglées par SHA |
 | **Méthode** | Branches par feature, PR vers `dev`, `main` pour les versions validées, commits atomiques |
 
 ---

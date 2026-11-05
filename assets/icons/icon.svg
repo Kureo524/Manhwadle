@@ -1,0 +1,36 @@
+<!-- Icône Manhwadle : fenêtre système ORV (coins en équerre) et étoile du Star Stream sur fond nuit.
+     Le contenu tient dans le cercle central (80 %) : la même image sert d'icône « maskable ». -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#1b2136"/>
+      <stop offset=".6" stop-color="#10121c"/>
+      <stop offset="1" stop-color="#0a0b12"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#a9c4f0" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#a9c4f0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <!-- Constellation discrète -->
+  <g stroke="#8aa8e0" stroke-opacity=".28" stroke-width="2" fill="none">
+    <path d="M150 352 L196 300 M316 212 L366 170 L382 214"/>
+  </g>
+  <g fill="#e8eefa">
+    <circle cx="150" cy="352" r="3.5" opacity=".7"/>
+    <circle cx="196" cy="300" r="2.5" opacity=".5"/>
+    <circle cx="366" cy="170" r="3.5" opacity=".7"/>
+    <circle cx="382" cy="214" r="2.5" opacity=".5"/>
+    <circle cx="170" cy="168" r="2" opacity=".45"/>
+    <circle cx="348" cy="350" r="2" opacity=".45"/>
+  </g>
+  <!-- Coins en équerre de la fenêtre système -->
+  <g stroke="#a9c4f0" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M118 182 V146 Q118 118 146 118 H182"/>
+    <path d="M394 330 V366 Q394 394 366 394 H330"/>
+  </g>
+  <!-- Étoile à quatre branches -->
+  <circle cx="256" cy="256" r="96" fill="url(#glow)"/>
+  <path fill="#e8eefa" d="M256 168 C264 228 284 248 344 256 C284 264 264 284 256 344 C248 284 228 264 168 256 C228 248 248 228 256 168 Z"/>
+</svg>
