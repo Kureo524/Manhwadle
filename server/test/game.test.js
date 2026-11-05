@@ -2,39 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import Logic from '../../src/logic.js';
-import { validateDailyGame, nextStats, liveStreak, addDays } from '../src/game.js';
+import { nextStats, liveStreak, pickDailyId, guessResults, hintLevel } from '../src/game.js';
 
 const characters = JSON.parse(readFileSync(new URL('../../data/characters.json', import.meta.url)));
 const NOW = Date.UTC(2026, 10, 10, 12); // 2026-11-10 12:00 UTC
 const DAY = '2026-11-10';
-const target = Logic.dailyCharacter(characters, DAY).id;
-const others = characters.map((c) => c.id).filter((id) => id !== target);
+const digest = (n) => { const b = new ArrayBuffer(4); new DataView(b).setUint32(0, n); return b; };
 
-test('partie gagnée : le serveur reconnaît le personnage du jour', () => {
-  assert.deepEqual(validateDailyGame({ day: DAY, guesses: [others[0], others[1], target] }, characters, NOW),
-    { day: DAY, guesses: 3, won: true });
+test('personnage du jour : indépendant de l\'ordre du fichier, suit l\'empreinte', () => {
+  assert.equal(pickDailyId(characters, digest(7)), pickDailyId([...characters].reverse(), digest(7)));
+  assert.notEqual(pickDailyId(characters, digest(7)), pickDailyId(characters, digest(8)));
 });
 
-test('partie perdue (abandon) acceptée sans la bonne réponse', () => {
-  assert.equal(validateDailyGame({ day: DAY, guesses: [others[0]] }, characters, NOW).won, false);
+test('comparaison : seuls la colonne, l\'état et le sens sont renvoyés', () => {
+  const [guess, target] = characters;
+  const results = guessResults(guess, target);
+  assert.equal(results.length, Logic.COLUMNS.length);
+  for (const r of results) assert.deepEqual(Object.keys(r).filter((k) => !['key', 'state', 'dir'].includes(k)), []);
 });
 
-test('triches et erreurs refusées', () => {
-  const bad = (body, re) => assert.throws(() => validateDailyGame(body, characters, NOW), re);
-  bad({ day: DAY, guesses: [target, others[0]] }, /dernier essai/);
-  bad({ day: DAY, guesses: [others[0], others[0]] }, /double/);
-  bad({ day: DAY, guesses: ['inconnu'] }, /inconnu/);
-  bad({ day: DAY, guesses: [] }, /invalide/);
-  bad({ day: '2026-11-07', guesses: [others[0]] }, /plus/);   // trop ancien
-  bad({ day: '2026-11-13', guesses: [others[0]] }, /plus/);   // dans le futur
-  bad({ day: '2026-02-31', guesses: [others[0]] }, /Jour invalide/);
-  bad({ day: '2026-10-01', guesses: [others[0]] }, /sortie/);
-});
-
-test('fuseaux : la veille et le lendemain UTC sont acceptés', () => {
-  for (const d of [addDays(DAY, -1), addDays(DAY, 1)]) {
-    assert.doesNotThrow(() => validateDailyGame({ day: d, guesses: [others[0]] }, characters, NOW));
-  }
+test('niveaux d\'indice selon le nombre d\'essais', () => {
+  assert.equal(hintLevel(Logic.HINT_AT - 1), 0);
+  assert.equal(hintLevel(Logic.HINT_AT), 1);
+  assert.equal(hintLevel(Logic.HINT_CLEAR_AT - 1), 1);
+  assert.equal(hintLevel(Logic.HINT_CLEAR_AT), 2);
 });
 
 test('série : continue, rompue, record, doublon refusé', () => {

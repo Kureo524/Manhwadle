@@ -8,7 +8,7 @@
 //   POST   /auth/logout             → ferme la session
 //   GET    /me                      → profil et statistiques du joueur
 //   DELETE /me                      → supprime le compte et toutes ses données
-//   POST   /games/daily             → ancienne route : partie entière envoyée par le client
+//   POST   /games/daily             → ancienne route retirée : demande de mettre le jeu à jour
 //   GET    /games/daily             → partie du jour du joueur (reprise sur n'importe quel appareil)
 //   POST   /games/daily/guess       → enregistre un essai, renvoie sa comparaison
 //   POST   /games/daily/give-up     → abandonne la partie du jour
@@ -18,7 +18,7 @@
 // Authentification : en-tête « Authorization: Bearer <jeton> » (pas de cookie, donc pas de CSRF).
 import characters from '../../data/characters.json';
 import Logic from '../../src/logic.js';
-import { validateDailyGame, nextStats, liveStreak, pickDailyId, guessResults, hintLevel, MAX_GUESSES, utcDay, addDays } from './game.js';
+import { nextStats, liveStreak, pickDailyId, guessResults, hintLevel, MAX_GUESSES, utcDay, addDays } from './game.js';
 
 const SESSION_DAYS = 90;
 const STATE_MINUTES = 10;
@@ -439,25 +439,7 @@ async function route(request, env, ctx) {
   if (method === 'POST' && pathname === '/games/daily/give-up') return dailyGiveUp(request, env, user);
   if (method === 'GET' && pathname === '/games/daily/hint') return dailyHint(request, env, user);
 
-  if (method === 'POST' && pathname === '/games/daily') {
-    const body = await readBody(request);
-    let game, next;
-    try {
-      game = validateDailyGame(JSON.parse(body), characters);
-      next = nextStats(user, game);
-    } catch (e) {
-      return fail(e.message, e.message.startsWith('Scénario déjà joué') ? 409 : 400);
-    }
-    // La partie et les stats sont écrites ensemble ; la clé (joueur, jour) empêche tout doublon.
-    await env.DB.batch([
-      env.DB.prepare('INSERT INTO daily_games (user_id, day, guesses, won) VALUES (?, ?, ?, ?)')
-        .bind(user.id, game.day, game.guesses, game.won ? 1 : 0),
-      env.DB.prepare(`UPDATE users SET streak = ?, best = ?, played = ?, won = ?, guesses = ?, last_day = ?
-                      WHERE id = ? AND (last_day IS NULL OR last_day < ?)`)
-        .bind(next.streak, next.best, next.played, next.won, next.guesses, next.last_day, user.id, game.day),
-    ]).catch(() => { throw new Error('conflict'); });
-    return json(publicProfile({ ...user, ...next }));
-  }
+  if (method === 'POST' && pathname === '/games/daily') return json({ error: 'Mets le jeu à jour pour jouer au perso du jour.', code: 'update' }, 410);
 
   return fail('Route inconnue.', 404);
 }
