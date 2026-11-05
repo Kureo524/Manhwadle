@@ -191,6 +191,13 @@ test('perso du jour : le même personnage pour tous, la partie reprend ailleurs'
   assert.equal((await sql(`SELECT COUNT(*) AS n FROM daily_targets WHERE day = '${today()}'`))[0].n, 1);
 });
 
+test('ancienne route : réponse claire pour les anciennes versions', { skip }, async () => {
+  const p = await newPlayer();
+  const res = await worker.fetch('/games/daily', { method: 'POST', headers: p.headers, body: JSON.stringify({ day: today(), guesses: ['kim-dokja'] }) });
+  assert.equal(res.status, 410);
+  assert.equal((await res.json()).code, 'update');
+});
+
 test('perso du jour : essais refusés', { skip }, async () => {
   const p = await newPlayer();
   await daily(p);
