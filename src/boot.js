@@ -5,7 +5,7 @@
 (async function () {
   'use strict';
   const SCRIPTS = ['i18n.js', 'logic.js', 'sky.js', 'glass-light.js', 'online.js',
-    'game/state.js', 'game/app.js'];
+    'game/state.js', 'game/grid.js', 'game/app.js'];
 
   // Windows / macOS : cadre natif et barre de titre intégrée (voir main.js).
   const platform = window.manhwadle?.platform;
