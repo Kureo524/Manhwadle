@@ -5,27 +5,64 @@
 [![Tests](https://github.com/Kureo524/Manhwadle/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/Kureo524/Manhwadle/actions/workflows/ci.yml)
 [![Builds](https://github.com/Kureo524/Manhwadle/actions/workflows/release.yml/badge.svg)](https://github.com/Kureo524/Manhwadle/actions/workflows/release.yml)
 
-**▶ [Jouer dans le navigateur](https://kureo524.github.io/Manhwadle/)** ·
+**▶ [Jouer dans le navigateur](https://kureo524.github.io/Manhwadle/)**, sans compte ni installation ·
 **[Télécharger](https://github.com/Kureo524/Manhwadle/releases/latest)** (Windows, macOS, Linux)
 
-**Sur téléphone :** ouvre le lien dans le navigateur puis « Ajouter à l'écran d'accueil » (Android : menu ⋮ → *Installer l'application* ; iPhone : Partager → *Sur l'écran d'accueil*). Le jeu s'installe comme une appli ; le mode Infini se joue hors ligne.
+![Une partie en cours](Docs/captures/partie.webp)
 
-> **In English —** Manhwadle is a daily character-guessing game (Wordle-like) set in five Korean web novels / webtoons.
-> Each guess is compared to the mystery character across 9 categories. It ships as a desktop app (Electron, sandboxed,
-> built for Windows, macOS and Linux by GitHub Actions) and as a browser version on GitHub Pages. The UI is an original
-> art direction inspired by the "system window" look of *Omniscient Reader's Viewpoint*. Personal fan project by
-> [Kilian Monnier](https://github.com/Kureo524), game developer (Unity / Unreal).
+> **In English:** Manhwadle is a daily character-guessing game (Wordle-like) set in five Korean web novels and webtoons.
+> Each guess is compared to the mystery character across 9 categories. It runs as a sandboxed Electron desktop app
+> (Windows, macOS, Linux) and an installable PWA, backed by a serverless API on Cloudflare Workers and D1: the server picks
+> the daily character and decides each game. The art direction is original, inspired by the "system window" look of
+> *Omniscient Reader's Viewpoint*. Personal fan project by [Kilian Monnier](https://github.com/Kureo524), game developer (Unity / Unreal).
+
+## En bref
+
+| | |
+|---|---|
+| **Le jeu** | Un « -dle » : retrouver un personnage parmi 107, comparé sur 9 catégories à chaque essai |
+| **Plateformes** | Windows, macOS, Linux (Electron), navigateur et téléphone (PWA hors ligne) |
+| **Pile technique** | JavaScript sans framework ni bundler, Electron 45, Cloudflare Workers, D1 (SQLite), GitHub Actions |
+| **Serveur** | Connexion Discord, parties décidées côté serveur, classement, limites de débit, purge planifiée |
+| **Qualité** | Tests du jeu et de l'API (exécutés sur le vrai Worker), ESLint, builds des 3 systèmes obligatoires avant chaque fusion |
+| **Sécurité** | Electron en bac à sable, CSP stricte, jetons stockés hachés, actions CI épinglées par SHA |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Clients
+    E["Appli de bureau<br>Electron"]
+    P["Site et PWA<br>GitHub Pages"]
+  end
+  subgraph Cloudflare
+    W["API<br>Worker"]
+    D[("D1<br>SQLite")]
+    H["Images d'indice<br>fichiers privés"]
+  end
+  C["Discord<br>OAuth2"]
+  E -- "HTTPS, jeton Bearer" --> W
+  P -- "HTTPS, jeton Bearer" --> W
+  W --> D
+  W --> H
+  W -- "connexion, avatars" --> C
+```
+
+- **Une seule interface** (`src/`) pour l'appli de bureau et le site. Seul le démarrage diffère.
+- **Mode Infini : tout sur l'appareil**, donc jouable sans compte et hors ligne.
+- **Perso du jour : tout sur le serveur.** Il choisit le personnage, reçoit les essais un par un et ne révèle la réponse qu'en fin de partie : le client ne peut pas la calculer.
+
+Le détail des choix est dans [Ce que j'ai construit](#ce-que-jai-construit).
+
+## Le jeu
 
 > [Un nouveau scénario est arrivé.]
 >
 > **Condition de réussite :** identifier l'incarnation mystère.
 > **Échec :** ???
 
-Manhwadle est un jeu de déduction standalone (Electron), dans la veine des « -dle ». Le but : retrouver
-un personnage de manhwa. À chaque essai, ton personnage est comparé au personnage mystère sur
+Le but : retrouver un personnage de manhwa. À chaque essai, ton personnage est comparé au personnage mystère sur
 9 catégories, et les constellations du Star Stream commentent ta progression.
-
-![Une partie en cours](Docs/captures/partie.webp)
 
 **Histoires disponibles** — 107 incarnations :
 
@@ -37,9 +74,9 @@ un personnage de manhwa. À chaque essai, ton personnage est comparé au personn
 | `@Reinc` | Reincarnator | 10 |
 | `@SESM` | Star-Embracing Swordmaster | 28 |
 
----
+**Sur téléphone :** ouvre [le site](https://kureo524.github.io/Manhwadle/) puis « Ajouter à l'écran d'accueil » (Android : menu ⋮ → *Installer l'application* ; iPhone : Partager → *Sur l'écran d'accueil*). Le jeu s'installe comme une appli ; le mode Infini se joue hors ligne.
 
-## Le scénario
+### Le scénario
 
 Deux modes, présentés comme des scénarios du Star Stream :
 
@@ -126,12 +163,14 @@ Le jeu l'interprète librement, dans l'ambiance d'ORV :
 | Domaine | Réalisation |
 |---|---|
 | **Gameplay** | Boucle de jeu « -dle » complète : deux modes, comparaison sur 9 catégories (exact / partiel / proximité de chapitre), indice progressif, statistiques, économie de pièces |
-| **Logique testée** | Module pur sans DOM (`src/logic.js`) : comparaison, tirage du jour déterministe (hachage FNV-1a), recherche avec tags `@` ; tests `node:test` qui valident aussi les 107 fiches et l'absence de portraits en double |
+| **Logique testée** | Module pur sans DOM (`src/logic.js`), partagé entre le client et le serveur : comparaison, recherche avec tags `@` ; tests `node:test` qui valident aussi les 107 fiches et l'absence de portraits en double |
 | **Données** | Pipeline depuis les API MediaWiki des wikis Fandom, galerie + import des portraits (ImageMagick → WebP 320×320), crédits par image |
 | **UI / DA** | Direction artistique originale « Verre d'encre », réinterprétée façon fenêtres système d'ORV : fenêtre transparente sous Hyprland, ciel de constellations animé en canvas, reflet du curseur, réactions des constellations |
-| **Application** | Electron 45 en bac à sable (données via IPC, navigation bloquée, permissions refusées, fuses), une seule page partagée avec la version web |
-| **Serveur** | API serverless Cloudflare Workers + D1 (SQLite) : connexion Discord OAuth2, sessions par jeton dont seul le SHA-256 est stocké, partie du jour **recalculée côté serveur** à partir de la même `src/logic.js` (impossible de tricher sur sa série), classement, suppression du compte |
-| **CI / livraison** | GitHub Actions : builds natifs Windows / macOS / Linux sur chaque PR, publication des binaires et de leurs empreintes SHA-256 sur tag, déploiement GitHub Pages (PWA installable, service worker hors ligne) ; actions épinglées par SHA |
+| **Application** | Electron 45 en bac à sable (données via IPC, navigation bloquée, permissions refusées, fuses), mises à jour automatiques, une seule interface partagée avec la version web, découpée par responsabilité dans `src/game/` |
+| **PWA** | Installable, jouable hors ligne : service worker généré au build, cache versionné par empreinte, mise à jour proposée dans le jeu |
+| **Serveur** | API serverless Cloudflare Workers + D1 : connexion Discord OAuth2, sessions par jeton dont seul le SHA-256 est stocké, personnage du jour choisi par HMAC et figé pour la journée, essais validés un par un, indices servis par le Worker, classement en cache, limites de débit, purge planifiée |
+| **Données personnelles** | Identifiant Discord jamais exposé, sortie du classement, export, suppression du compte, durées de conservation, [page de confidentialité](https://kureo524.github.io/Manhwadle/privacy.html), [procédures d'exploitation](Docs/Exploitation.md) |
+| **Tests / CI** | Tests du jeu et de l'API, ces derniers sur le vrai Worker avec une base D1 jetable ; ESLint ; builds natifs Windows, macOS et Linux sur chaque PR, tous obligatoires avant fusion ; publication des binaires et de leurs empreintes SHA-256 sur tag ; actions épinglées par SHA |
 | **Méthode** | Branches par feature, PR vers `dev`, `main` pour les versions validées, commits atomiques |
 
 ---
@@ -154,8 +193,8 @@ le tag `vX.Y.Z` : la CI construit et publie les binaires et leurs fichiers de mi
 
 Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (nécessite `fuse2`).
 
-**Serveur** : l'API de connexion et de classement vit dans `server/` (`npm test` pour sa logique,
-`npx wrangler deploy` pour la publier).
+**Serveur** : l'API vit dans `server/`. `npm test` y lance les tests (Node 22 ou plus pour ceux qui exécutent le Worker),
+`npx wrangler deploy` la publie. Les opérations manuelles sont dans [`Docs/Exploitation.md`](Docs/Exploitation.md).
 
 ## Commandes
 
@@ -164,6 +203,7 @@ Exécutable Linux : `npm run dist` → `dist/Manhwadle-<version>.AppImage` (néc
 | `npm start` | lance le jeu |
 | `npm run site` | assemble la version navigateur dans `site/` |
 | `npm test` | logique du jeu, validation des données, portraits sans doublon |
+| `npm run lint` | ESLint sur tout le projet |
 | `npm run dist` | construit l'AppImage |
 | `npm run portraits:galerie` | page des portraits manquants, à enregistrer depuis le navigateur |
 | `npm run portraits:import` | importe `assets/inbox/<id>.<ext>` en portraits WebP |
