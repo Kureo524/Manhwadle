@@ -34,6 +34,10 @@ function start() {
   }));
   ipcMain.handle('manhwadle:login', (event) => discordLogin(BrowserWindow.fromWebContents(event.sender)));
   ipcMain.on('manhwadle:login-cancel', () => loginWindow?.close());
+  // Déconnexion : la fenêtre Discord ne doit pas se reconnecter toute seule ensuite.
+  ipcMain.on('manhwadle:login-clear', () => {
+    require('electron').session.fromPartition('persist:discord').clearStorageData().catch(() => {});
+  });
 
   // Aucune permission web (caméra, micro, notifications…) n'est utile au jeu.
   app.whenReady().then(() => {

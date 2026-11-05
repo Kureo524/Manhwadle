@@ -6,8 +6,12 @@
 //   GET    /auth/discord/callback   → crée la session, renvoie vers le site avec #session=<jeton>
 //   POST   /auth/poll               → appli installée (PWA) : récupère la session une fois la connexion faite
 //   POST   /auth/logout             → ferme la session
+//   POST   /auth/logout-all         → ferme toutes les sessions du joueur
 //   GET    /me                      → profil et statistiques du joueur
+//   POST   /me/settings             → réglages (apparaître au classement)
+//   GET    /me/export               → toutes les données du joueur (JSON)
 //   DELETE /me                      → supprime le compte et toutes ses données
+//   GET    /avatar/<id public>      → avatar, sans exposer l'identifiant Discord
 //   POST   /games/daily             → ancienne route retirée : demande de mettre le jeu à jour
 //   GET    /games/daily             → partie du jour du joueur (reprise sur n'importe quel appareil)
 //   POST   /games/daily/guess       → enregistre un essai, renvoie sa comparaison
@@ -26,6 +30,9 @@ const STATE_COOKIE = '__Host-manhwadle_state';
 const MAX_BODY = 8192;
 const LEADERBOARD_SECONDS = 60;
 const DAILY_KEEP_DAYS = 7; // durée de conservation du détail des essais
+const INACTIVE_DAYS = 730; // compte supprimé après 2 ans sans connexion
+const AVATAR_SECONDS = 3600;
+const PUBLIC_ID = /^[0-9a-f]{32}$/;
 const byId = new Map(characters.map((c) => [c.id, c]));
 
 // Limites de débit par route et par adresse IP (binding déclaré dans wrangler.toml).
@@ -39,6 +46,10 @@ const LIMITS = {
   'POST /games/daily/give-up': 'LIMIT_API',
   'GET /games/daily/hint': 'LIMIT_API',
   'GET /leaderboard': 'LIMIT_API',
+  'GET /avatar': 'LIMIT_POLL',
+  'POST /me/settings': 'LIMIT_API',
+  'GET /me/export': 'LIMIT_AUTH',
+  'POST /auth/logout-all': 'LIMIT_AUTH',
 };
 
 const CORS = {
@@ -49,7 +60,9 @@ const CORS = {
 };
 
 const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS } });
+  new Response(JSON.stringify(data), { status, headers: {
+    'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...CORS,
+  } });
 const fail = (message, status = 400) => json({ error: message }, status);
 
 const randomToken = () => {
@@ -91,16 +104,25 @@ async function currentUser(request, env) {
   const auth = request.headers.get('Authorization') ?? '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token) return null;
-  return env.DB.prepare(
+  const user = await env.DB.prepare(
     `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ? AND s.expires_at > ?`,
   ).bind(await sha256(token), new Date().toISOString()).first();
+  // Dernière connexion, écrite au plus une fois par jour : sert à la durée de conservation.
+  const today = utcDay();
+  if (user && user.last_seen !== today) {
+    await env.DB.prepare('UPDATE users SET last_seen = ? WHERE id = ?').bind(today, user.id).run();
+    user.last_seen = today;
+  }
+  return user;
 }
 
 const publicProfile = (u) => ({
-  id: u.id,
+  id: u.public_id,
   name: u.name,
-  avatar: u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=64` : null,
+  // Chemin sur cette API : l'adresse Discord contiendrait l'identifiant du joueur. ?v= change avec l'avatar.
+  avatar: u.avatar ? `/avatar/${u.public_id}?v=${u.avatar}` : null,
+  showOnBoard: !!u.show_on_board,
   streak: liveStreak(u),
   best: u.best,
   played: u.played,
@@ -144,7 +166,7 @@ async function toDiscord(request, env, poll, prompt, status = 302) {
     client_id: env.DISCORD_CLIENT_ID, response_type: 'code', scope: 'identify',
     redirect_uri: callbackUrl(request), state, prompt,
   });
-  const headers = { Location: url.href };
+  const headers = { Location: url.href, 'Cache-Control': 'no-store' };
   // Site et appli de bureau : la session revient dans ce navigateur, le state lui est donc lié.
   // Appli installée : la session ne revient qu'au détenteur du code secret.
   if (!poll) headers['Set-Cookie'] = `${STATE_COOKIE}=${state}; Path=/; Max-Age=${STATE_MINUTES * 60}; HttpOnly; Secure; SameSite=Lax`;
@@ -215,6 +237,7 @@ async function callback(request, env) {
       const fragment = code === 'ok' ? `session=${await newSession(env, userId)}` : `login=${code}`;
       return new Response(null, { status: 302, headers: {
         Location: `${env.SITE_URL}#${fragment}`,
+        'Cache-Control': 'no-store',
         'Set-Cookie': `${STATE_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
       } });
     }
@@ -241,9 +264,9 @@ async function callback(request, env) {
   const me = await meRes.json();
   const name = String(me.global_name || me.username || 'Incarnation').slice(0, 40);
 
-  await env.DB.prepare(`INSERT INTO users (id, name, avatar) VALUES (?, ?, ?)
-                        ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar`)
-    .bind(String(me.id), name, me.avatar ?? null).run();
+  await env.DB.prepare(`INSERT INTO users (id, name, avatar, public_id, last_seen) VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, last_seen = excluded.last_seen`)
+    .bind(String(me.id), name, me.avatar ?? null, crypto.randomUUID().replaceAll('-', ''), utcDay()).run();
   return back('ok', String(me.id));
 }
 
@@ -251,7 +274,11 @@ async function callback(request, env) {
 async function purgeExpired(env) {
   const now = new Date().toISOString();
   const oldDay = addDays(utcDay(), -DAILY_KEEP_DAYS);
+  const inactive = addDays(utcDay(), -INACTIVE_DAYS);
   await env.DB.batch([
+    ...['sessions', 'daily_games', 'daily_guesses', 'login_polls'].map((table) =>
+      env.DB.prepare(`DELETE FROM ${table} WHERE user_id IN (SELECT id FROM users WHERE last_seen < ?)`).bind(inactive)),
+    env.DB.prepare('DELETE FROM users WHERE last_seen < ?').bind(inactive),
     ...['sessions', 'oauth_states', 'login_polls'].map((table) =>
       env.DB.prepare(`DELETE FROM ${table} WHERE expires_at < ?`).bind(now)),
     env.DB.prepare('DELETE FROM daily_guesses WHERE day < ?').bind(oldDay),
@@ -382,12 +409,55 @@ async function leaderboard(request, env, ctx) {
   const cached = await cache.match(key);
   if (cached) return cached;
   const { results } = await env.DB.prepare(
-    `SELECT id, name, avatar, streak, best, played, won, guesses, last_day FROM users
-     WHERE played > 0 AND hidden = 0 ORDER BY best DESC, streak DESC, won DESC LIMIT 50`,
+    `SELECT public_id, name, avatar, show_on_board, streak, best, played, won, guesses, last_day FROM users
+     WHERE played > 0 AND hidden = 0 AND show_on_board = 1 ORDER BY best DESC, streak DESC, won DESC LIMIT 50`,
   ).all();
   const res = json({ players: results.map(publicProfile) });
   res.headers.set('Cache-Control', `public, max-age=${LEADERBOARD_SECONDS}`);
   ctx.waitUntil(cache.put(key, res.clone()));
+  return res;
+}
+
+// Avatar servi par le Worker : le navigateur des autres joueurs ne voit jamais l'adresse Discord.
+async function avatarImage(request, env, ctx, publicId) {
+  if (!PUBLIC_ID.test(publicId)) return fail('Avatar inconnu.', 404);
+  const cache = caches.default;
+  const key = new Request(request.url);
+  const cached = await cache.match(key);
+  if (cached) return cached;
+  const user = await env.DB.prepare('SELECT id, avatar FROM users WHERE public_id = ?').bind(publicId).first();
+  if (!user?.avatar) return fail('Avatar inconnu.', 404);
+  const image = await fetch(`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`);
+  if (!image.ok) return fail('Avatar inconnu.', 404);
+  const res = new Response(image.body, { headers: {
+    'Content-Type': 'image/png', 'Cache-Control': `public, max-age=${AVATAR_SECONDS}`, 'X-Content-Type-Options': 'nosniff', ...CORS,
+  } });
+  ctx.waitUntil(cache.put(key, res.clone()));
+  return res;
+}
+
+async function updateSettings(request, env, user) {
+  const { showOnBoard } = await readDailyBody(request);
+  if (typeof showOnBoard !== 'boolean') return fail('Réglage invalide.');
+  await env.DB.prepare('UPDATE users SET show_on_board = ? WHERE id = ?').bind(showOnBoard ? 1 : 0, user.id).run();
+  return json(publicProfile({ ...user, show_on_board: showOnBoard ? 1 : 0 }));
+}
+
+// Droit d'accès et portabilité : tout ce que le serveur garde sur le joueur.
+async function exportData(env, user) {
+  const rows = async (sql) => (await env.DB.prepare(sql).bind(user.id).all()).results;
+  const res = json({
+    exportedAt: new Date().toISOString(),
+    account: {
+      discordId: user.id, name: user.name, avatar: user.avatar, publicId: user.public_id,
+      showOnLeaderboard: !!user.show_on_board, hiddenByModeration: !!user.hidden, createdAt: user.created_at, lastSeen: user.last_seen,
+    },
+    stats: { streak: user.streak, best: user.best, played: user.played, won: user.won, guesses: user.guesses, lastDay: user.last_day },
+    dailyGames: await rows('SELECT day, guesses, won, created_at AS createdAt FROM daily_games WHERE user_id = ? ORDER BY day'),
+    dailyGuesses: await rows('SELECT day, position, character_id AS characterId FROM daily_guesses WHERE user_id = ? ORDER BY day, position'),
+    sessions: await rows('SELECT expires_at AS expiresAt FROM sessions WHERE user_id = ? ORDER BY expires_at'),
+  });
+  res.headers.set('Content-Disposition', 'attachment; filename="manhwadle-donnees.json"');
   return res;
 }
 
@@ -396,10 +466,11 @@ async function route(request, env, ctx) {
   const { pathname } = new URL(request.url);
   const method = request.method;
 
-  const limiter = env[LIMITS[`${method} ${pathname}`]];
+  const avatarId = method === 'GET' && pathname.startsWith('/avatar/') ? pathname.slice('/avatar/'.length) : null;
+  const limiter = env[LIMITS[avatarId !== null ? 'GET /avatar' : `${method} ${pathname}`]];
   if (limiter) {
     const ip = request.headers.get('CF-Connecting-IP') ?? 'local';
-    const { success } = await limiter.limit({ key: `${pathname}:${ip}` });
+    const { success } = await limiter.limit({ key: `${avatarId !== null ? '/avatar' : pathname}:${ip}` });
     if (!success) return new Response(JSON.stringify({ error: 'Trop de requêtes, réessaie dans une minute.' }), {
       status: 429, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Retry-After': '60', ...CORS },
     });
@@ -411,6 +482,7 @@ async function route(request, env, ctx) {
   if (method === 'POST' && pathname === '/auth/poll') return poll(request, env);
 
   if (method === 'GET' && pathname === '/leaderboard') return leaderboard(request, env, ctx);
+  if (avatarId !== null) return avatarImage(request, env, ctx, avatarId);
 
   const user = await currentUser(request, env);
   if (!user) return fail('Connexion requise.', 401);
@@ -423,12 +495,21 @@ async function route(request, env, ctx) {
     return json({ ok: true });
   }
 
+  if (method === 'POST' && pathname === '/auth/logout-all') {
+    await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
+    return json({ ok: true });
+  }
+
+  if (method === 'POST' && pathname === '/me/settings') return updateSettings(request, env, user);
+  if (method === 'GET' && pathname === '/me/export') return exportData(env, user);
+
   if (method === 'DELETE' && pathname === '/me') {
     // Données personnelles : tout est supprimé (sessions et parties suivent par cascade).
     await env.DB.batch([
       env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM daily_games WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM daily_guesses WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM login_polls WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
     ]);
     return json({ ok: true });

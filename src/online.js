@@ -88,6 +88,12 @@
     }
   }
 
+  // Oublie la session, et la connexion Discord gardée par l'appli de bureau (ordinateur partagé).
+  function forget() {
+    writeToken(null);
+    window.manhwadle.clearLogin?.();
+  }
+
   window.Online = {
     get signedIn() { return !!readToken(); },
     /** Code d'erreur de connexion à afficher une fois (retour sur le site), puis oublié. */
@@ -125,12 +131,25 @@
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
       return URL.createObjectURL(await res.blob());
     },
+    /** Adresse complète de l'avatar d'un joueur (chemin renvoyé par l'API). */
+    avatarUrl: (path) => API + path,
+    setShowOnBoard: (showOnBoard) => call('POST', '/me/settings', { showOnBoard }),
+    /** Toutes les données du joueur, en fichier JSON. */
+    async exportData() {
+      const res = await fetch(`${API}/me/export`, { headers: { Authorization: `Bearer ${readToken()}` } });
+      if (!res.ok) throw new Error(`Erreur ${res.status}`);
+      return res.blob();
+    },
     async logout() {
-      try { await call('POST', '/auth/logout'); } finally { writeToken(null); }
+      try { await call('POST', '/auth/logout'); } finally { forget(); }
+    },
+    async logoutAll() {
+      await call('POST', '/auth/logout-all');
+      forget();
     },
     async deleteAccount() {
       await call('DELETE', '/me');
-      writeToken(null);
+      forget();
     },
   };
 })();

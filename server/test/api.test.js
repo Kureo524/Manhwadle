@@ -151,8 +151,9 @@ async function newPlayer(extra = '') {
   const id = `joueur${++nextPlayer}`;
   const token = randomBytes(32).toString('base64url');
   const hash = createHash('sha256').update(token).digest('hex');
-  await sql(`INSERT INTO users (id, name) VALUES ('${id}', '${id}'); INSERT INTO sessions VALUES ('${hash}', '${id}', '2099-01-01T00:00:00.000Z'); ${extra}`);
-  return { id, headers: { Authorization: `Bearer ${token}` } };
+  const publicId = randomBytes(16).toString('hex');
+  await sql(`INSERT INTO users (id, name, public_id) VALUES ('${id}', '${id}', '${publicId}'); INSERT INTO sessions VALUES ('${hash}', '${id}', '2099-01-01T00:00:00.000Z'); ${extra}`);
+  return { id, publicId, headers: { Authorization: `Bearer ${token}` } };
 }
 const daily = async (p) => (await worker.fetch('/games/daily', { headers: p.headers })).json();
 const guess = (p, id, day = today()) => worker.fetch('/games/daily/guess', { method: 'POST', headers: p.headers, body: JSON.stringify({ id, day }) });
@@ -273,8 +274,89 @@ test('classement : un joueur masqué n\'apparaît pas, et la réponse est mise e
   const res = await worker.fetch('/leaderboard');
   assert.equal(res.headers.get('Cache-Control'), 'public, max-age=60');
   const ids = (await res.json()).players.map((x) => x.id);
-  assert.ok(ids.includes(visible.id));
-  assert.ok(!ids.includes(masque.id));
+  assert.ok(ids.includes(visible.publicId));
+  assert.ok(!ids.includes(masque.publicId));
+  assert.ok(!ids.includes(visible.id), 'identifiant Discord absent');
+});
+
+test('classement : sans l\'identifiant Discord, et le joueur peut en sortir', { skip }, async () => {
+  const p = await newPlayer();
+  await sql(`UPDATE users SET played = 1, avatar = 'abc', name = 'Pseudo' WHERE id = '${p.id}'`);
+  const me = await (await worker.fetch('/me', { headers: p.headers })).json();
+  assert.equal(me.id, p.publicId);
+  assert.equal(me.showOnBoard, true);
+  assert.equal(me.avatar, `/avatar/${p.publicId}?v=abc`);
+  assert.ok(!JSON.stringify(me).includes(p.id));
+  const off = await worker.fetch('/me/settings', { method: 'POST', headers: p.headers, body: JSON.stringify({ showOnBoard: false }) });
+  assert.equal((await off.json()).showOnBoard, false);
+  assert.equal((await sql(`SELECT show_on_board AS v FROM users WHERE id = '${p.id}'`))[0].v, 0);
+  assert.equal((await worker.fetch('/me/settings', { method: 'POST', headers: p.headers, body: '{"showOnBoard":"non"}' })).status, 400);
+});
+
+test('avatar : identifiant inconnu ou joueur sans avatar', { skip }, async () => {
+  const p = await newPlayer();
+  assert.equal((await worker.fetch('/avatar/pas-un-id')).status, 404);
+  assert.equal((await worker.fetch(`/avatar/${'0'.repeat(32)}`)).status, 404);
+  assert.equal((await worker.fetch(`/avatar/${p.publicId}`)).status, 404);
+});
+
+test('export : toutes les données du joueur, et seulement les siennes', { skip }, async () => {
+  const p = await newPlayer();
+  const other = await newPlayer();
+  await daily(p);
+  await guess(p, (await wrong(1))[0]);
+  await sql(`INSERT INTO daily_games (user_id, day, guesses, won) VALUES ('${other.id}', '2026-11-01', 3, 1)`);
+  assert.equal((await worker.fetch('/me/export')).status, 401);
+  const res = await worker.fetch('/me/export', { headers: p.headers });
+  assert.match(res.headers.get('Content-Disposition'), /attachment/);
+  assert.equal(res.headers.get('Cache-Control'), 'no-store');
+  const data = await res.json();
+  assert.equal(data.account.discordId, p.id);
+  assert.equal(data.dailyGuesses.length, 1);
+  assert.equal(data.dailyGames.length, 0);
+  assert.equal(data.sessions.length, 1);
+  assert.ok(!JSON.stringify(data).includes('token_hash'));
+});
+
+test('déconnexion de tous les appareils', { skip }, async () => {
+  const p = await newPlayer();
+  const token2 = randomBytes(32).toString('base64url');
+  await sql(`INSERT INTO sessions VALUES ('${createHash('sha256').update(token2).digest('hex')}', '${p.id}', '2099-01-01T00:00:00.000Z')`);
+  const second = { Authorization: `Bearer ${token2}` };
+  assert.equal((await worker.fetch('/me', { headers: second })).status, 200);
+  assert.equal((await worker.fetch('/auth/logout-all', { method: 'POST', headers: p.headers })).status, 200);
+  assert.equal((await worker.fetch('/me', { headers: p.headers })).status, 401);
+  assert.equal((await worker.fetch('/me', { headers: second })).status, 401);
+});
+
+test('suppression du compte : plus aucune donnée', { skip }, async () => {
+  const p = await newPlayer();
+  await daily(p);
+  await guess(p, (await wrong(1))[0]);
+  assert.equal((await worker.fetch('/me', { method: 'DELETE', headers: p.headers })).status, 200);
+  for (const table of ['sessions', 'daily_games', 'daily_guesses', 'login_polls']) {
+    assert.equal((await sql(`SELECT COUNT(*) AS n FROM ${table} WHERE user_id = '${p.id}'`))[0].n, 0, table);
+  }
+  assert.equal((await sql(`SELECT COUNT(*) AS n FROM users WHERE id = '${p.id}'`))[0].n, 0);
+});
+
+test('comptes inactifs depuis 2 ans supprimés, les autres gardés', { skip }, async () => {
+  const old = await newPlayer();
+  const kept = await newPlayer();
+  const recent = new Date(Date.now() - 700 * 864e5).toISOString().slice(0, 10);
+  await sql(`UPDATE users SET last_seen = '2020-01-01' WHERE id = '${old.id}'; UPDATE users SET last_seen = '${recent}' WHERE id = '${kept.id}'`);
+  assert.equal((await worker.fetch('/__scheduled?cron=0+4+*+*+*')).status, 200);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal((await sql(`SELECT COUNT(*) AS n FROM users WHERE id = '${old.id}'`))[0].n, 0);
+  assert.equal((await sql(`SELECT COUNT(*) AS n FROM sessions WHERE user_id = '${old.id}'`))[0].n, 0);
+  assert.equal((await sql(`SELECT COUNT(*) AS n FROM users WHERE id = '${kept.id}'`))[0].n, 1);
+});
+
+test('dernière connexion mise à jour à l\'usage', { skip }, async () => {
+  const p = await newPlayer();
+  await sql(`UPDATE users SET last_seen = '2025-01-01' WHERE id = '${p.id}'`);
+  await worker.fetch('/me', { headers: p.headers });
+  assert.equal((await sql(`SELECT last_seen AS v FROM users WHERE id = '${p.id}'`))[0].v, today());
 });
 
 test('au-delà de la limite de débit : 429', { skip }, async () => {

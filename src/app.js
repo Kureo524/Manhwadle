@@ -241,6 +241,41 @@
     render();
   }
 
+  async function logoutAll() {
+    try {
+      await online.logoutAll();
+      profile = null;
+      forgetDaily();
+      accountMsg = t('msg.loggedOutAll');
+    } catch {
+      accountMsg = t('msg.actionFailed');
+    }
+    render();
+  }
+
+  async function toggleBoard() {
+    try {
+      applyProfile(await online.setShowOnBoard(profile.showOnBoard === false));
+      accountMsg = t(profile.showOnBoard ? 'msg.boardOn' : 'msg.boardOff');
+    } catch {
+      accountMsg = t('msg.actionFailed');
+    }
+    render();
+  }
+
+  async function exportData() {
+    try {
+      const url = URL.createObjectURL(await online.exportData());
+      const a = el('a');
+      a.href = url; a.download = 'manhwadle-donnees.json';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      accountMsg = t('msg.actionFailed');
+      render();
+    }
+  }
+
   async function deleteAccount() {
     if (!confirmDelete) { confirmDelete = true; renderView(); return; }
     confirmDelete = false;
@@ -599,9 +634,9 @@
   // ---------- Compte et classement ----------
   function avatar(p, size) {
     const box = el('span', `avatar avatar--${size}`);
-    if (typeof p.avatar === 'string' && p.avatar.startsWith('https://cdn.discordapp.com/')) {
+    if (online && typeof p.avatar === 'string' && p.avatar.startsWith('/avatar/')) {
       const img = el('img');
-      img.src = p.avatar; img.alt = ''; img.referrerPolicy = 'no-referrer'; img.draggable = false;
+      img.src = online.avatarUrl(p.avatar); img.alt = ''; img.referrerPolicy = 'no-referrer'; img.draggable = false;
       box.append(img);
     } else box.textContent = initials(p.name) || '?';
     return box;
@@ -681,6 +716,9 @@
   function accountView() {
     const msg = accountMsg ? [el('p', 'panel__msg system', `[${accountMsg}]`)] : [];
     const note = el('p', 'panel__note', t('acc.note'));
+    const privacy = el('a', '', t('acc.privacy'));
+    privacy.href = `${SITE_URL}privacy.html`; privacy.target = '_blank'; privacy.rel = 'noopener';
+    note.append(' ', privacy);
     if (profile) {
       const who = el('div', 'panel__who');
       const txt = el('div');
@@ -693,7 +731,10 @@
         [t('acc.avg'), profile.won ? I.decimal(profile.guesses / profile.won) : '–'],
         [t('acc.last'), profile.lastDay ? t('acc.lastValue', { n: L.dayNumber(profile.lastDay), date: I.date(profile.lastDay) }) : t('acc.never')],
       ]), actionsOf(
+        button('link', t(profile.showOnBoard === false ? 'acc.boardOff' : 'acc.boardOn'), toggleBoard),
+        button('link', t('acc.export'), exportData),
         button('link link--strong', t('acc.logout'), logout),
+        button('link', t('acc.logoutAll'), logoutAll),
         button('link link--danger', confirmDelete ? t('acc.deleteConfirm') : t('acc.delete'), deleteAccount),
       ), ...msg, note);
     }

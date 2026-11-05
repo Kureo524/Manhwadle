@@ -67,6 +67,8 @@ partie, et la partie suit le joueur du site à l'appli. Le jour change à minuit
 ou hors ligne, le mode Infini reste libre. Limite assumée : un second compte peut toujours découvrir la réponse,
 comme sur tout jeu de ce type.
 
+**Données personnelles** : [page de confidentialité](https://kureo524.github.io/Manhwadle/privacy.html). L'onglet « Compte » permet de sortir du classement, de télécharger ses données, de déconnecter tous ses appareils et de supprimer son compte.
+
 **Récompense** : 1 000 pièces au premier essai, puis 100 de moins par essai supplémentaire
 (100 au minimum). Les pièces s'additionnent dans tes statistiques.
 
