@@ -27,13 +27,17 @@ const confirm = (hash, from = origin) => worker.fetch('/auth/discord/confirm', {
 });
 const poll = async (key) => (await worker.fetch('/auth/poll', { method: 'POST', body: JSON.stringify({ poll: key }) })).json();
 
+const sql = (command) => JSON.parse(execFileSync(process.execPath, [
+  join(server, 'node_modules/wrangler/bin/wrangler.js'), 'd1', 'execute', 'manhwadle', '--local', '--persist-to', persist, '--json', '--command', command,
+], { cwd: server, encoding: 'utf8' }))[0].results;
+
 before(async () => {
   if (skip) return;
   const wrangler = join(server, 'node_modules/wrangler/bin/wrangler.js');
   execFileSync(process.execPath, [wrangler, 'd1', 'migrations', 'apply', 'manhwadle', '--local', '--persist-to', persist], { cwd: server, stdio: 'ignore' });
   const { unstable_dev: dev } = await import('wrangler');
   worker = await dev(join(server, 'src/index.js'), {
-    config: join(server, 'wrangler.toml'), local: true, persistTo: persist, logLevel: 'none',
+    config: join(server, 'wrangler.toml'), local: true, persistTo: persist, logLevel: 'none', testScheduled: true,
     experimental: { disableExperimentalWarning: true },
   });
   // L'origine vue par le Worker, celle de sa propre redirect_uri.
@@ -90,4 +94,55 @@ test('le résultat ne revient qu\'au détenteur du code, une seule fois', { skip
   assert.deepEqual(await poll(hash), { pending: true }); // l'empreinte seule ne donne rien
   assert.deepEqual(await poll(key), { error: 'annule' });
   assert.deepEqual(await poll(key), { pending: true });
+});
+
+test('corps trop grand refusé, même sans Content-Length', { skip }, async () => {
+  const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('x'.repeat(2048))); c.close(); } });
+  const res = await worker.fetch('/auth/poll', { method: 'POST', body: stream, duplex: 'half' });
+  assert.equal(res.status, 413);
+});
+
+test('corps illisible : réponse 400, pas d\'erreur interne', { skip }, async () => {
+  assert.equal((await worker.fetch('/auth/poll', { method: 'POST', body: 'pas du json' })).status, 400);
+});
+
+test('connexion du site : le state est lié au navigateur par un cookie', { skip }, async () => {
+  const res = await worker.fetch('/auth/discord', { redirect: 'manual' });
+  const cookie = res.headers.get('Set-Cookie');
+  for (const attr of ['HttpOnly', 'Secure', 'SameSite=Lax', 'Path=/']) assert.ok(cookie.includes(attr), attr);
+  const state = new URL(res.headers.get('Location')).searchParams.get('state');
+  assert.ok(cookie.startsWith(`__Host-manhwadle_state=${state};`));
+  // Sans le cookie (lien préparé par quelqu'un d'autre), le retour est refusé avant tout appel à Discord.
+  const back = await worker.fetch(`/auth/discord/callback?code=x&state=${state}`, { redirect: 'manual' });
+  assert.equal(back.status, 302);
+  assert.ok(back.headers.get('Location').endsWith('#login=expire'));
+});
+
+test('appli installée : aucun cookie, le résultat ne revient qu\'au détenteur du code', { skip }, async () => {
+  assert.equal((await confirm(newPoll().hash)).headers.get('Set-Cookie'), null);
+});
+
+test('la purge quotidienne retire ce qui est expiré, et seulement cela', { skip }, async () => {
+  const past = '2020-01-01T00:00:00.000Z';
+  const future = '2099-01-01T00:00:00.000Z';
+  sql(`INSERT INTO users (id, name) VALUES ('purge', 'Test');
+       INSERT INTO sessions VALUES ('vieille', 'purge', '${past}'), ('valide', 'purge', '${future}');
+       INSERT INTO oauth_states (state, expires_at) VALUES ('vieux', '${past}'), ('valide', '${future}');
+       INSERT INTO login_polls (poll_hash, error, expires_at) VALUES ('vieux', 'annule', '${past}'), ('valide', 'annule', '${future}');`);
+  assert.equal((await worker.fetch('/__scheduled?cron=0+4+*+*+*')).status, 200);
+  await new Promise((r) => setTimeout(r, 300));
+  const left = (table, col) => sql(`SELECT ${col} AS k FROM ${table} WHERE ${col} IN ('vieille', 'vieux', 'valide')`).map((r) => r.k);
+  assert.deepEqual(left('sessions', 'token_hash'), ['valide']);
+  assert.deepEqual(left('oauth_states', 'state'), ['valide']);
+  assert.deepEqual(left('login_polls', 'poll_hash'), ['valide']);
+});
+
+test('au-delà de la limite de débit : 429', { skip }, async () => {
+  let res;
+  for (let i = 0; i < 80; i++) {
+    res = await worker.fetch('/leaderboard');
+    if (res.status === 429) break;
+  }
+  assert.equal(res.status, 429);
+  assert.equal(res.headers.get('Retry-After'), '60');
 });
