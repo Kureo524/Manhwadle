@@ -66,6 +66,22 @@ test('un lien ?poll= affiche une page de confirmation avec le code, sans partir 
   assert.ok(!html.includes('discord.com/oauth2'));
 });
 
+test('session invalide ou expirée : 401', { skip }, async () => {
+  assert.equal((await worker.fetch('/me', { headers: { Authorization: 'Bearer inconnu' } })).status, 401);
+  const token = randomBytes(32).toString('base64url');
+  await sql(`INSERT INTO users (id, name) VALUES ('expire', 'Expire'); INSERT INTO sessions VALUES ('${createHash('sha256').update(token).digest('hex')}', 'expire', '2020-01-01T00:00:00.000Z')`);
+  assert.equal((await worker.fetch('/me', { headers: { Authorization: `Bearer ${token}` } })).status, 401);
+});
+
+test('state OAuth expiré ou déjà utilisé : refusé avant tout appel à Discord', { skip }, async () => {
+  await sql(`INSERT INTO oauth_states (state, expires_at) VALUES ('perime', '2020-01-01T00:00:00.000Z')`);
+  const headers = { Cookie: '__Host-manhwadle_state=perime' };
+  const old = await worker.fetch('/auth/discord/callback?code=x&state=perime', { redirect: 'manual', headers });
+  assert.ok(old.headers.get('Location').endsWith('#login=expire'));
+  const again = await worker.fetch('/auth/discord/callback?code=x&state=perime', { redirect: 'manual', headers });
+  assert.ok(again.headers.get('Location').endsWith('#login=expire'));
+});
+
 test('une empreinte mal formée est refusée', { skip }, async () => {
   assert.equal((await worker.fetch('/auth/discord?poll=xyz', { redirect: 'manual' })).status, 400);
   assert.equal((await confirm('xyz')).status, 400);
