@@ -2,9 +2,11 @@
 (function () {
   'use strict';
   const A = window.App;
-  const { manhwas, characters, L, I, t, SITE_URL, byId, manhwaById, $, store, online, S, poolFor, dailyStreak, el, initials, button, rows, reward } = A;
+  const { manhwas, characters, L, I, t, SITE_URL, byId, $, store, online, S, poolFor, dailyStreak, el, initials, button, rows, reward } = A;
 
-  Object.assign(A, { loadGame, newEndlessGame, loadDaily, login, render, closeSuggestions });
+  Object.assign(A, { loadGame, newEndlessGame, loadDaily, login, submitGuess, renderMode, render });
+
+  const input = $('search');
 
   // ---------- Parties ----------
   function loadGame() {
@@ -98,7 +100,7 @@
   async function submitDailyGuess(id) {
     if (S.dailyBusy) return;
     S.dailyBusy = true;
-    closeSuggestions();
+    A.closeSuggestions();
     $('search').value = '';
     try {
       applyDaily(await online.dailyGuess(id, S.dailyGame.day));
@@ -244,7 +246,7 @@
     S.game.guesses.push(id);
     const won = id === S.game.target.id;
     if (won) finish(true); else saveGame();
-    closeSuggestions();
+    A.closeSuggestions();
     $('search').value = '';
     render({ animateFirst: true });
   }
@@ -488,117 +490,7 @@
     $('give-up').hidden = S.mode !== 'endless' || S.game.done;
   }
 
-  // ---------- Suggestions ----------
-  // Éléments : { char } (un personnage) ou { manhwa } (choix de filtre après « @ »).
-  let suggestionList = [];
-  let active = 0;
-
-  function closeSuggestions() { $('suggestions').hidden = true; suggestionList = []; }
-
-  function pick(item) {
-    if (!item) return;
-    if (item.char) return submitGuess(item.char.id);
-    const input = $('search');
-    input.value = `@${item.manhwa.short.replace(/\.$/, '')} `;
-    active = 0;
-    openSuggestions();
-  }
-
-  function openSuggestions() {
-    const input = $('search');
-    const box = $('suggestions');
-    if (!input.value.trim() || S.game.done) return closeSuggestions();
-    const pool = poolFor(S.mode);
-    const guessed = new Set(S.game.guesses);
-    const inPool = manhwas.filter((m) => pool.some((c) => c.manhwa === m.id));
-    const q = L.parseQuery(input.value, inPool);
-    let header = null;
-    if (q.choices) {
-      suggestionList = q.choices.map((m) => ({ manhwa: m }));
-      header = t('sugg.filter');
-    } else {
-      const chars = L.search(pool, q.text, guessed, q.manhwa ? Infinity : 8, q.manhwa?.id ?? null);
-      suggestionList = chars.map((c) => ({ char: c }));
-      if (q.manhwa) header = t('sugg.count', { title: q.manhwa.title, n: chars.length });
-    }
-    active = Math.min(active, Math.max(suggestionList.length - 1, 0));
-    box.replaceChildren();
-    const list = el('div', 'suggestions__list');
-    box.append(list);
-    if (header) list.append(el('div', 'suggestions__header system', `[${header}]`));
-    if (!suggestionList.length) list.append(el('div', 'suggestions__empty', q.choices ? t('sugg.noManhwa') : t('sugg.noChar')));
-    suggestionList.forEach((item, i) => {
-      const b = el('button', `suggestion ${i === active ? 'is-active' : ''}`);
-      b.setAttribute('role', 'option');
-      if (item.char) {
-        const c = item.char;
-        const txt = el('span', 'suggestion__text');
-        txt.append(el('span', 'suggestion__name', c.name), el('span', 'suggestion__sub', manhwaById.get(c.manhwa).title));
-        b.append(A.portrait(c, 'md'), txt);
-      } else {
-        const m = item.manhwa;
-        const left = pool.filter((c) => c.manhwa === m.id && !guessed.has(c.id)).length;
-        b.append(el('span', 'suggestion__tag', `@${m.short.replace(/\.$/, '')}`), el('span', 'suggestion__name', m.title), el('span', 'suggestion__meta', t('sugg.left', { n: left })));
-      }
-      b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(item); });
-      b.addEventListener('mouseenter', () => { active = i; highlight(); });
-      list.append(b);
-    });
-    // Grand aperçu du personnage surligné, à droite de la liste.
-    if (suggestionList.some((x) => x.char)) box.append(el('div', 'suggestions__preview'));
-    renderPreview();
-    box.hidden = false;
-    placeSuggestions();
-  }
-
-  // La liste est posée en position fixe sous le champ : on la recale quand la page défile,
-  // et on la ferme si le champ sort de la zone visible.
-  function placeSuggestions() {
-    const box = $('suggestions');
-    if (box.hidden) return;
-    const r = $('search').getBoundingClientRect();
-    const stage = document.querySelector('.stage').getBoundingClientRect();
-    if (r.bottom < stage.top || r.top > stage.bottom) return closeSuggestions();
-    Object.assign(box.style, { left: `${r.left}px`, top: `${r.bottom + 6}px`, width: `${r.width}px` });
-    // Hauteur limitée à la place restante sous le champ (petit écran, clavier du téléphone).
-    const list = box.querySelector('.suggestions__list');
-    if (list) list.style.maxHeight = `${Math.max(160, Math.min(420, innerHeight - r.bottom - 22))}px`;
-  }
-
-  function renderPreview() {
-    const box = $('suggestions').querySelector('.suggestions__preview');
-    const c = suggestionList[active]?.char;
-    if (!box) return;
-    box.replaceChildren();
-    if (!c) return;
-    box.append(A.portrait(c, 'xl'), el('div', 'preview__name', c.name), el('div', 'preview__manhwa', manhwaById.get(c.manhwa).title));
-  }
-
-  function highlight() {
-    [...$('suggestions').querySelectorAll('.suggestion')].forEach((b, i) => {
-      b.classList.toggle('is-active', i === active);
-      if (i === active) b.scrollIntoView({ block: 'nearest' });
-    });
-    renderPreview();
-  }
-
   // ---------- Événements ----------
-  const input = $('search');
-  input.addEventListener('input', () => { active = 0; openSuggestions(); });
-  input.addEventListener('focus', openSuggestions);
-  // Changer de fenêtre ne ferme pas la liste ; cliquer ailleurs dans l'appli, si.
-  input.addEventListener('blur', () => setTimeout(() => { if (document.hasFocus()) closeSuggestions(); }, 80));
-  input.addEventListener('keydown', (e) => {
-    const n = suggestionList.length;
-    if (e.key === 'ArrowDown' && n) { e.preventDefault(); active = (active + 1) % n; highlight(); }
-    else if (e.key === 'ArrowUp' && n) { e.preventDefault(); active = (active - 1 + n) % n; highlight(); }
-    else if (e.key === 'Enter' && suggestionList[active]) { e.preventDefault(); pick(suggestionList[active]); }
-    // Tab complète le tag de manhwa sélectionné.
-    else if (e.key === 'Tab' && suggestionList[active]?.manhwa) { e.preventDefault(); pick(suggestionList[active]); }
-    else if (e.key === 'Escape') closeSuggestions();
-  });
-  window.addEventListener('resize', () => { if (!$('suggestions').hidden) openSuggestions(); renderMode(); });
-  document.querySelector('.stage').addEventListener('scroll', placeSuggestions, { passive: true });
 
   $('mode').addEventListener('click', (e) => {
     const b = e.target.closest('.tabs__item');
@@ -661,6 +553,6 @@
       demo.guesses.filter((id) => byId.has(id) && id !== S.game.target.id).forEach(submitGuess);
     }
     // Démo : garde la liste ouverte malgré les changements de focus du compositeur.
-    if (demo.type) { input.value = demo.type; setInterval(() => { if ($('suggestions').hidden) openSuggestions(); }, 400); }
+    if (demo.type) { input.value = demo.type; setInterval(() => { if ($('suggestions').hidden) A.openSuggestions(); }, 400); }
   }
 })();
