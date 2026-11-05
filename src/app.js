@@ -3,6 +3,8 @@
   'use strict';
   const { manhwas, characters } = window.manhwadle;
   const L = window.Logic;
+  const I = window.I18n;
+  const t = I.t;
 
   const SITE_URL = 'https://kureo524.github.io/Manhwadle/';
   const HINT_AT = 6;        // essais avant l'indice (portrait flouté)
@@ -37,7 +39,8 @@
   let profile = null;     // profil renvoyé par l'API quand le joueur est connecté
   let board = null;       // classement chargé
   let boardError = null;
-  let accountMsg = online?.takeNotice() ?? '';
+  const loginNotice = online?.takeNotice();
+  let accountMsg = loginNotice ? t(`login.${loginNotice}`) : '';
   let loggingIn = false;
   let confirmDelete = false;
 
@@ -139,8 +142,8 @@
       applyProfile(await online.me());
       await pushDailyGames();
     } catch (e) {
-      if (e.status === 401) { profile = null; accountMsg = 'Session expirée : reconnecte-toi.'; }
-      else if (!profile) accountMsg = 'Serveur injoignable : la série reste sur cet appareil pour l\'instant.';
+      if (e.status === 401) { profile = null; accountMsg = t('msg.sessionExpired'); }
+      else if (!profile) accountMsg = t('msg.offline');
     }
     render();
     if (view === 'ranking') loadBoard();
@@ -152,7 +155,7 @@
       board = (await online.leaderboard()).players;
       boardError = null;
     } catch {
-      boardError = 'Classement injoignable pour l\'instant.';
+      boardError = true;
     }
     renderView();
   }
@@ -161,13 +164,12 @@
     // Déjà en cours : on ramène la fenêtre Discord au premier plan (appli).
     if (loggingIn) { window.manhwadle.login?.(); return; }
     loggingIn = true;
-    accountMsg = typeof window.manhwadle.login === 'function'
-      ? 'Connexion dans la fenêtre Discord… (Échap pour la fermer)' : 'Connexion à Discord…';
+    accountMsg = t(typeof window.manhwadle.login === 'function' ? 'msg.loginWindow' : 'msg.loginRedirect');
     view = 'account';
     render();
     const error = await online.login();
     loggingIn = false;
-    accountMsg = error ?? '';
+    accountMsg = error ? t(`login.${error}`) : '';
     if (error) { renderAccount(); renderView(); return; }
     setView('account');
     await syncAccount();
@@ -176,7 +178,7 @@
   async function logout() {
     await online.logout().catch(() => {});
     profile = null;
-    accountMsg = 'Déconnecté. Ta série reste sur cet appareil.';
+    accountMsg = t('msg.loggedOut');
     render();
   }
 
@@ -186,9 +188,9 @@
     try {
       await online.deleteAccount();
       profile = null;
-      accountMsg = 'Compte supprimé : toutes tes données en ligne ont été effacées.';
-    } catch (e) {
-      accountMsg = `Suppression impossible : ${e.message}`;
+      accountMsg = t('msg.deleted');
+    } catch {
+      accountMsg = t('msg.deleteFailed');
     }
     render();
     loadBoard();
@@ -244,21 +246,21 @@
     else if (result.key === 'chapter') {
       c.append(el('span', 'cell__num', v ?? '?'));
       if (result.dir) c.insertAdjacentHTML('beforeend', ARROW[result.dir]);
-      c.title = result.dir === 'up' ? 'Apparaît plus tard' : result.dir === 'down' ? 'Apparaît plus tôt' : '';
-    } else if (Array.isArray(v)) v.forEach((x) => c.append(el('span', 'cell__line', x)));
-    else c.append(el('span', 'cell__line', v));
+      c.title = result.dir === 'up' ? t('cell.later') : result.dir === 'down' ? t('cell.earlier') : '';
+    } else if (Array.isArray(v)) v.forEach((x) => c.append(el('span', 'cell__line', I.value(x))));
+    else c.append(el('span', 'cell__line', I.value(v)));
     return c;
   }
 
   function renderGrid(animateFirst) {
     const grid = $('grid');
     grid.replaceChildren();
-    grid.append(el('div', 'grid__head', 'Personnage'));
-    for (const col of L.COLUMNS) grid.append(el('div', 'grid__head', col.label));
+    grid.append(el('div', 'grid__head', t('col.character')));
+    for (const col of L.COLUMNS) grid.append(el('div', 'grid__head', t(`col.${col.key}`)));
 
     if (!game.guesses.length) {
       const empty = el('div', 'grid__empty');
-      empty.append(el('span', '', 'Aucune incarnation nommée pour l\'instant.'));
+      empty.append(el('span', '', t('grid.empty')));
       grid.append(empty);
       return;
     }
@@ -273,6 +275,8 @@
       const cells = [who, ...L.compare(c, game.target).map(cell)];
       cells.forEach((node, i) => {
         if (row === 0 && animateFirst) { node.classList.add('reveal'); node.style.animationDelay = `${i * 70}ms`; }
+        // Nom de la colonne (repris de l'en-tête), affiché dans les cartes d'essai sur téléphone.
+        if (i > 0) node.dataset.label = grid.children[i].textContent;
         grid.append(node);
       });
     });
@@ -283,25 +287,21 @@
   const reward = (n) => Math.max(100, REWARD_MAX - 100 * Math.max(0, n - 1));
   const DIFFICULTY = ['F', 'D', 'C', 'B', 'A', 'S'];
 
-  // Constellations inventées pour le jeu (modificateurs à la façon d'ORV).
-  const CONSTELLATIONS = [
-    'Lectrice des dernières pages', 'Démon aux mille masques', 'Prisonnier de la tour sans fin',
-    'Juge des braises', 'Gardien des histoires oubliées', 'Conteur sans nom', 'Épéiste qui compte les étoiles',
-  ];
+  // Constellations inventées pour le jeu (modificateurs à la façon d'ORV) : voir i18n.js.
   const pickOf = (list, seed) => list[L.hash(seed) % list.length];
 
   function reaction(guessId, index) {
     const r = L.compare(byId.get(guessId), game.target);
     const ok = r.filter((x) => x.state === 'ok').length;
     const sameStory = r[0].state === 'ok';
-    const who = pickOf(CONSTELLATIONS, `${game.target.id}:${index}`);
+    const who = pickOf(t('constellations'), `${game.target.id}:${index}`);
     const seed = `${guessId}:${index}`;
-    if (guessId === game.target.id) return ['Toutes les constellations applaudissent.', null];
-    if (ok >= 7) return [pickOf(['retient son souffle.', 'se penche vers l\'écran.', 'murmure que vous y êtes presque.'], seed), who];
-    if (sameStory && ok >= 4) return [pickOf(['a reconnu cette histoire.', 'hoche lentement la tête.'], seed), who];
-    if (ok >= 4) return [pickOf(['s\'intéresse à votre choix.', 'vous fait signe de continuer.'], seed), who];
-    if (ok >= 2) return [pickOf(['penche la tête, perplexe.', 'feuillette un autre chapitre.'], seed), who];
-    return [pickOf(['bâille.', 'détourne le regard.', 'trouve ce choix audacieux.'], seed), who];
+    if (guessId === game.target.id) return [t('react.win'), null];
+    if (ok >= 7) return [pickOf(t('react.close'), seed), who];
+    if (sameStory && ok >= 4) return [pickOf(t('react.story'), seed), who];
+    if (ok >= 4) return [pickOf(t('react.warm'), seed), who];
+    if (ok >= 2) return [pickOf(t('react.lukewarm'), seed), who];
+    return [pickOf(t('react.cold'), seed), who];
   }
 
   function renderFeed(animate) {
@@ -311,23 +311,24 @@
     const live = dailyStreak();
     const playedElsewhere = mode === 'daily' && !game.done && profile?.lastDay && profile.lastDay >= game.day;
     if (mode === 'daily' && !game.done && !game.guesses.length && live && !playedElsewhere) {
-      lines.push([`Votre série de ${live} jour${live > 1 ? 's' : ''} est en jeu. Le scénario se termine à minuit.`, null]);
+      lines.push([t('feed.streakAtStake', { n: live }), null]);
     }
     if (playedElsewhere) {
-      lines.push(['Ce scénario a déjà été joué depuis un autre appareil : cette partie ne changera pas votre série.', null]);
+      lines.push([t('feed.playedElsewhere'), null]);
     }
-    if (game.done && !game.won) lines.push(['Les constellations sont déçues.', null]);
-    if (game.done && game.won) lines.push([`${reward(game.guesses.length)} pièces ont été sponsorisées.`, null]);
+    if (game.done && !game.won) lines.push([t('feed.lost'), null]);
+    if (game.done && game.won) lines.push([t('feed.coins', { n: I.integer(reward(game.guesses.length)) }), null]);
     if (game.done && mode === 'daily') {
       const s = stats.daily;
-      if (game.won && s.streak > 1 && s.streak === s.best) lines.push([`Nouveau record : ${s.streak} jours consécutifs.`, null]);
-      else if (game.won) lines.push([`Série : ${s.streak} jour${s.streak > 1 ? 's' : ''}.`, null]);
-      else lines.push(['La série est rompue.', null]);
+      if (game.won && s.streak > 1 && s.streak === s.best) lines.push([t('feed.record', { n: s.streak }), null]);
+      else if (game.won) lines.push([t('feed.streak', { n: s.streak }), null]);
+      else lines.push([t('feed.broken'), null]);
     }
     lines.slice(-3).reverse().forEach(([text, who], i) => {
       const msg = el('div', `feed__msg ${i === 0 && animate ? 'is-new' : ''}`);
       if (who) {
-        msg.append('[La constellation ', Object.assign(el('em'), { textContent: `« ${who} »` }), ` ${text}]`);
+        const [before, name, after] = t('feed.constellation', { who, text });
+        msg.append(before, Object.assign(el('em'), { textContent: name }), after);
       } else msg.textContent = `[${text}]`;
       box.append(msg);
     });
@@ -349,9 +350,8 @@
   function streakRow() {
     const live = dailyStreak();
     const best = stats.daily.best;
-    const days = (k) => `jour${k > 1 ? 's' : ''}`;
-    if (!live) return ['Série', best ? `aucune en cours · record ${best} ${days(best)}` : 'aucune en cours'];
-    return ['Série', `${days(live)} consécutif${live > 1 ? 's' : ''} · record ${best}`, live];
+    if (!live) return [t('sc.streak'), best ? t('sc.noStreakBest', { best }) : t('sc.noStreak')];
+    return [t('sc.streak'), t('sc.streakRun', { n: live, best }), live];
   }
 
   function renderScenario() {
@@ -364,37 +364,37 @@
 
     if (game.done) {
       const t = game.target;
-      main.append(el('h2', 'scenario__title', game.won ? '[Le scénario principal est terminé.]' : '[Échec du scénario.]'));
+      main.append(el('h2', 'scenario__title', game.won ? t('sc.won') : t('sc.lost')));
       const res = el('div', 'result');
       const txt = el('div');
       txt.append(el('div', 'result__name', t.name), el('div', 'result__manhwa', manhwaById.get(t.manhwa).title));
       res.append(txt);
       main.append(res);
       main.append(rows([
-        ['Essais', '', n],
-        ['Récompense', game.won ? 'pièces' : 'aucune', game.won ? reward(n) : undefined],
-        ...(mode === 'daily' ? [streakRow(), ['Prochain scénario', `dans ${untilMidnight()}`]] : []),
+        [t('sc.guesses'), '', n],
+        [t('sc.reward'), game.won ? t('sc.coins') : t('sc.noReward'), game.won ? I.integer(reward(n)) : undefined],
+        ...(mode === 'daily' ? [streakRow(), [t('sc.next'), t('sc.in', { time: untilMidnight() })]] : []),
       ]));
       const actions = el('div', 'scenario__actions');
-      const share = el('button', 'link link--strong', '[Partager le résultat]');
+      const share = el('button', 'link link--strong', t('sc.share'));
       share.addEventListener('click', async () => {
         // Appli de bureau : image de la zone de jeu. Navigateur : texte (une page ne peut pas se capturer).
         if (typeof window.manhwadle.shareImage === 'function') {
           closeSuggestions();
-          share.textContent = (await window.manhwadle.shareImage()) ? '[Image copiée.]' : '[Copie impossible.]';
-          setTimeout(() => { share.textContent = '[Partager le résultat]'; }, 1800);
+          share.textContent = (await window.manhwadle.shareImage()) ? t('sc.imageCopied') : t('sc.copyFailed');
+          setTimeout(() => { share.textContent = t('sc.share'); }, 1800);
           return;
         }
         const text = L.shareText({
-          daily: mode === 'daily', day: game.day, won: game.won, streak: dailyStreak(), url: SITE_URL,
+          daily: mode === 'daily', day: game.day, won: game.won, streak: dailyStreak(), url: SITE_URL, lang: I.lang,
           rows: game.guesses.map((id) => L.compare(byId.get(id), game.target).map((r) => r.state)),
         });
-        share.textContent = (await copyText(text)) ? '[Résultat copié.]' : '[Copie impossible.]';
-        setTimeout(() => { share.textContent = '[Partager le résultat]'; }, 1800);
+        share.textContent = (await copyText(text)) ? t('sc.textCopied') : t('sc.copyFailed');
+        setTimeout(() => { share.textContent = t('sc.share'); }, 1800);
       });
       actions.append(share);
       if (mode === 'endless') {
-        const again = el('button', 'link link--strong', '[Scénario suivant]');
+        const again = el('button', 'link link--strong', t('sc.nextScenario'));
         again.addEventListener('click', () => { newEndlessGame(); render(); $('search').focus(); });
         actions.append(again);
       }
@@ -402,24 +402,24 @@
       side.append(portrait(t, 'lg'));
     } else {
       const level = mode === 'daily' ? 'A' : DIFFICULTY[Math.min(enabled.size, DIFFICULTY.length - 1)];
-      main.append(el('h2', 'scenario__title', mode === 'daily' ? '[Scénario principal — Le personnage du jour]' : '[Scénario secondaire — Incarnation inconnue]'));
+      main.append(el('h2', 'scenario__title', mode === 'daily' ? t('sc.titleDaily') : t('sc.titleEndless')));
       main.append(rows([
-        ['Catégorie', mode === 'daily' ? 'Principal' : 'Secondaire'],
-        ['Difficulté', level],
-        ['Condition de réussite', `Identifier le personnage mystère parmi ${pool.length} incarnations.`],
-        ['Temps limite', mode === 'daily' ? `${untilMidnight()} (minuit)` : 'Aucun'],
-        ['Récompense', 'pièces', reward(n + 1)],
+        [t('sc.category'), mode === 'daily' ? t('sc.main') : t('sc.side')],
+        [t('sc.difficulty'), level],
+        [t('sc.goal'), t('sc.goalText', { n: pool.length })],
+        [t('sc.timeLimit'), mode === 'daily' ? t('sc.untilMidnight', { time: untilMidnight() }) : t('sc.none')],
+        [t('sc.reward'), t('sc.coins'), I.integer(reward(n + 1))],
         ...(mode === 'daily' ? [streakRow()] : []),
-        ['Échec', mode === 'daily' ? '???' : 'Abandon'],
+        [t('sc.failure'), mode === 'daily' ? '???' : t('sc.giveUp')],
       ]));
       if (n >= HINT_AT) {
         const p = portrait(game.target, 'lg');
         p.classList.add('hint__img');
         p.style.setProperty('--blur', n >= HINT_CLEAR_AT ? '6px' : '14px');
-        side.append(p, el('div', 'scenario__note system', n >= HINT_CLEAR_AT ? '[Indice : silhouette presque nette.]' : `[Indice : silhouette floue. Plus nette à ${HINT_CLEAR_AT} essais.]`));
+        side.append(p, el('div', 'scenario__note system', n >= HINT_CLEAR_AT ? t('hint.clear') : t('hint.blurry', { at: HINT_CLEAR_AT })));
       } else {
         const left = HINT_AT - n;
-        side.append(el('div', 'hint__locked', left), el('div', 'scenario__note system', `[Indice dans ${left} essai${left > 1 ? 's' : ''}.]`));
+        side.append(el('div', 'hint__locked', left), el('div', 'scenario__note system', t('hint.locked', { n: left })));
       }
     }
     box.append(main, side);
@@ -429,24 +429,34 @@
     const now = new Date();
     const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     const m = Math.ceil((next - now) / 60000);
-    return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
+    return t('time', { h: Math.floor(m / 60), m: String(m % 60).padStart(2, '0') });
   }
 
   function renderStats() {
     const s = stats[mode];
     const items = [
-      ['Scénarios', s.played],
-      ['Réussis', s.played ? `${Math.round((s.won / s.played) * 100)} %` : '–'],
-      ['Série', mode === 'daily' ? dailyStreak() : s.streak],
-      ['Record', s.best],
-      ['Essais moyens', s.won ? (s.totalGuesses / s.won).toFixed(1).replace('.', ',') : '–'],
-      ['Pièces', (s.coins ?? 0).toLocaleString('fr-FR')],
+      [t('stats.played'), s.played],
+      [t('stats.won'), s.played ? I.percent(Math.round((s.won / s.played) * 100)) : '–'],
+      [t('stats.streak'), mode === 'daily' ? dailyStreak() : s.streak],
+      [t('stats.best'), s.best],
+      [t('stats.avg'), s.won ? I.decimal(s.totalGuesses / s.won) : '–'],
+      [t('stats.coins'), I.integer(s.coins ?? 0)],
     ];
     $('stats').replaceChildren(...items.map(([label, value]) => {
       const d = el('span', '', `[${label}`);
       d.append(el('b', '', value), ']');
       return d;
     }));
+    // Langue : [FR · EN], la langue active en gras.
+    const langs = el('span', 'lang');
+    langs.setAttribute('aria-label', t('acc.language'));
+    I.LANGS.forEach((code, i) => {
+      if (i) langs.append(' · ');
+      const b = button(`link lang__item ${code === I.lang ? 'is-active' : ''}`, code.toUpperCase(), () => setLang(code));
+      b.setAttribute('aria-pressed', String(code === I.lang));
+      langs.append(b);
+    });
+    $('stats').append(langs);
   }
 
   function renderFilters() {
@@ -456,7 +466,7 @@
     for (const m of manhwas) {
       const count = characters.filter((c) => c.manhwa === m.id).length;
       const chip = el('button', `filter ${enabled.has(m.id) ? 'is-on' : ''}`, `${m.short.replace(/\.$/, '')} · ${count}`);
-      chip.title = `${m.title} — ${enabled.has(m.id) ? 'retirer de la partie' : 'ajouter à la partie'}`;
+      chip.title = `${m.title} — ${enabled.has(m.id) ? t('filter.remove') : t('filter.add')}`;
       chip.addEventListener('click', () => {
         if (enabled.has(m.id)) { if (enabled.size === 1) return; enabled.delete(m.id); } else enabled.add(m.id);
         store.set('filters', [...enabled]);
@@ -486,15 +496,15 @@
     if (!online) return;
     if (profile) {
       const me = el('button', 'account__me');
-      me.title = 'Mon compte';
+      me.title = t('acc.me');
       me.append(avatar(profile, 'sm'), el('span', 'account__name', profile.name));
       me.addEventListener('click', () => setView('account'));
       box.append(me);
     } else if (online.signedIn) {
-      box.append(el('span', 'account__wait', '[Connexion…]'));
+      box.append(el('span', 'account__wait', t('acc.connecting')));
     } else {
-      const b = el('button', 'link', loggingIn ? '[Connexion…]' : '[Se connecter]');
-      b.title = 'Se connecter avec Discord : série synchronisée et classement';
+      const b = el('button', 'link', loggingIn ? t('acc.connecting') : t('acc.login'));
+      b.title = t('acc.loginTitle');
       b.addEventListener('click', login);
       box.append(b);
     }
@@ -508,13 +518,13 @@
 
   function renderBoard() {
     const wrap = el('div', 'board');
-    if (boardError) { wrap.append(el('p', 'board__empty system', `[${boardError}]`)); return wrap; }
-    if (!board) { wrap.append(el('p', 'board__empty system', '[Chargement du classement…]')); return wrap; }
+    if (boardError) { wrap.append(el('p', 'board__empty system', t('rank.error'))); return wrap; }
+    if (!board) { wrap.append(el('p', 'board__empty system', t('rank.loading'))); return wrap; }
     if (!board.length) {
-      wrap.append(el('p', 'board__empty system', '[Aucune incarnation classée pour l\'instant. Réussis le perso du jour pour ouvrir le classement.]'));
+      wrap.append(el('p', 'board__empty system', t('rank.empty')));
       return wrap;
     }
-    wrap.append(boardRow(['#', 'Incarnation', 'Record', 'Série', 'Réussis', 'Essais moyens'].map((t) => el('span', 'board__head', t)), 'board__row--head'));
+    wrap.append(boardRow(t('rank.head').map((h) => el('span', 'board__head', h)), 'board__row--head'));
     board.forEach((p, i) => {
       const who = el('span', 'board__who');
       who.append(avatar(p, 'sm'), el('span', 'board__name', p.name));
@@ -525,15 +535,11 @@
         num(p.best),
         num(p.streak),
         num(`${p.won}/${p.played}`),
-        num(p.won ? (p.guesses / p.won).toFixed(1).replace('.', ',') : '–'),
+        num(p.won ? I.decimal(p.guesses / p.won) : '–'),
       ], profile?.id === p.id ? 'is-me' : ''));
     });
     return wrap;
   }
-
-  const NOTE = 'Données gardées sur le serveur : ton identifiant, ton pseudo et ton avatar Discord, et pour chaque perso du jour '
-    + 'la date, le nombre d\'essais et la réussite. Rien d\'autre n\'est lu sur ton compte Discord. '
-    + 'Supprimer le compte efface tout, définitivement.';
 
   function panel(title, ...children) {
     const box = el('div', 'panel');
@@ -556,46 +562,44 @@
   // Onglet « Compte » : connexion Discord, ou fiche du joueur connecté.
   function accountView() {
     const msg = accountMsg ? [el('p', 'panel__msg system', `[${accountMsg}]`)] : [];
-    const note = el('p', 'panel__note', NOTE);
+    const note = el('p', 'panel__note', t('acc.note'));
     if (profile) {
       const who = el('div', 'panel__who');
       const txt = el('div');
-      txt.append(el('div', 'panel__name', profile.name), el('div', 'panel__sub', 'Connecté avec Discord · série synchronisée entre le site et l\'appli'));
+      txt.append(el('div', 'panel__name', profile.name), el('div', 'panel__sub', t('acc.sub')));
       who.append(avatar(profile, 'md'), txt);
-      const days = (k) => `jour${k > 1 ? 's' : ''}`;
-      return panel('[Fiche de l\'incarnation]', who, rows([
-        ['Série en cours', days(profile.streak), profile.streak],
-        ['Record', days(profile.best), profile.best],
-        ['Scénarios réussis', `sur ${profile.played}`, profile.won],
-        ['Essais moyens', profile.won ? (profile.guesses / profile.won).toFixed(1).replace('.', ',') : '–'],
-        ['Dernier scénario', profile.lastDay ? `n° ${L.dayNumber(profile.lastDay)} (${profile.lastDay.split('-').reverse().join('/')})` : 'aucun'],
+      return panel(t('acc.titleIn'), who, rows([
+        [t('acc.streak'), t('acc.days', { n: profile.streak }), profile.streak],
+        [t('acc.best'), t('acc.days', { n: profile.best }), profile.best],
+        [t('acc.won'), t('acc.outOf', { n: profile.played }), profile.won],
+        [t('acc.avg'), profile.won ? I.decimal(profile.guesses / profile.won) : '–'],
+        [t('acc.last'), profile.lastDay ? t('acc.lastValue', { n: L.dayNumber(profile.lastDay), date: I.date(profile.lastDay) }) : t('acc.never')],
       ]), actionsOf(
-        button('link link--strong', '[Se déconnecter]', logout),
-        button('link link--danger', confirmDelete ? '[Confirmer : tout supprimer]' : '[Supprimer mon compte]', deleteAccount),
+        button('link link--strong', t('acc.logout'), logout),
+        button('link link--danger', confirmDelete ? t('acc.deleteConfirm') : t('acc.delete'), deleteAccount),
       ), ...msg, note);
     }
-    if (online.signedIn) return panel('[Connexion à la Star Stream]', el('p', 'panel__text', 'Connexion au serveur…'), ...msg);
-    return panel('[Connexion à la Star Stream]',
-      el('p', 'panel__text', 'Connecte-toi avec Discord : ta série du perso du jour est vérifiée par le serveur, '
-        + 'retrouvée sur le site comme dans l\'appli, et inscrite au classement. Sans compte, tout reste sur cet appareil.'),
+    if (online.signedIn) return panel(t('acc.titleOut'), el('p', 'panel__text', t('acc.connectingServer')), ...msg);
+    return panel(t('acc.titleOut'),
+      el('p', 'panel__text', t('acc.intro')),
       actionsOf(
-        button('link link--strong', loggingIn ? '[Connexion…]' : '[Se connecter avec Discord]', login),
+        button('link link--strong', loggingIn ? t('acc.connecting') : t('acc.loginDiscord'), login),
         // Appli : la fenêtre Discord peut se retrouver derrière le jeu ; on peut l'annuler d'ici.
         ...(loggingIn && typeof window.manhwadle.cancelLogin === 'function'
-          ? [button('link', '[Annuler]', () => window.manhwadle.cancelLogin())] : []),
+          ? [button('link', t('acc.cancel'), () => window.manhwadle.cancelLogin())] : []),
       ),
       ...msg, note);
   }
 
   function rankingView() {
     const parts = [
-      el('p', 'panel__text', 'Meilleures séries de scénarios principaux réussis. Chaque partie est vérifiée par le serveur.'),
+      el('p', 'panel__text', t('rank.intro')),
       renderBoard(),
     ];
     if (!profile && !online.signedIn) {
-      parts.push(actionsOf(button('link', '[Se connecter pour apparaître au classement]', () => setView('account'))));
+      parts.push(actionsOf(button('link', t('rank.join'), () => setView('account'))));
     }
-    return panel('[Classement des incarnations — Perso du jour]', ...parts);
+    return panel(t('rank.title'), ...parts);
   }
 
   function renderView() {
@@ -617,7 +621,22 @@
     line.style.width = `${active.offsetWidth - 20}px`;
     const pool = poolFor(mode);
     const tracked = new Set(pool.map((c) => c.manhwa)).size;
-    $('pool-info').textContent = `[${pool.length} incarnations · ${tracked} histoires]`;
+    $('pool-info').textContent = t('pool', { n: pool.length, stories: tracked });
+  }
+
+  // Textes fixes de la page (index.html) : data-i18n, data-i18n-title, data-i18n-aria.
+  function renderStatic() {
+    for (const n of document.querySelectorAll('[data-i18n]')) n.textContent = t(n.dataset.i18n);
+    for (const n of document.querySelectorAll('[data-i18n-title]')) n.title = t(n.dataset.i18nTitle);
+    for (const n of document.querySelectorAll('[data-i18n-aria]')) n.setAttribute('aria-label', t(n.dataset.i18nAria));
+  }
+
+  function setLang(next) {
+    if (next === I.lang) return;
+    I.setLang(next);
+    accountMsg = '';
+    renderStatic();
+    render();
   }
 
   function render({ animateFirst = false } = {}) {
@@ -631,7 +650,7 @@
     renderStats();
     const input = $('search');
     input.disabled = game.done;
-    input.placeholder = game.done ? (mode === 'daily' ? 'Le prochain scénario commence à minuit.' : 'Scénario terminé.') : 'Nomme une incarnation…  (@ORV pour lister un manhwa)';
+    input.placeholder = game.done ? (mode === 'daily' ? t('search.doneDaily') : t('search.doneEndless')) : t('search.placeholder');
     $('give-up').hidden = mode !== 'endless' || game.done;
   }
 
@@ -662,18 +681,18 @@
     let header = null;
     if (q.choices) {
       suggestionList = q.choices.map((m) => ({ manhwa: m }));
-      header = 'Filtrer par manhwa';
+      header = t('sugg.filter');
     } else {
       const chars = L.search(pool, q.text, guessed, q.manhwa ? Infinity : 8, q.manhwa?.id ?? null);
       suggestionList = chars.map((c) => ({ char: c }));
-      if (q.manhwa) header = `${q.manhwa.title} · ${chars.length} personnage${chars.length > 1 ? 's' : ''}`;
+      if (q.manhwa) header = t('sugg.count', { title: q.manhwa.title, n: chars.length });
     }
     active = Math.min(active, Math.max(suggestionList.length - 1, 0));
     box.replaceChildren();
     const list = el('div', 'suggestions__list');
     box.append(list);
     if (header) list.append(el('div', 'suggestions__header system', `[${header}]`));
-    if (!suggestionList.length) list.append(el('div', 'suggestions__empty', q.choices ? 'Aucun manhwa ne correspond.' : 'Aucun personnage ne correspond.'));
+    if (!suggestionList.length) list.append(el('div', 'suggestions__empty', q.choices ? t('sugg.noManhwa') : t('sugg.noChar')));
     suggestionList.forEach((item, i) => {
       const b = el('button', `suggestion ${i === active ? 'is-active' : ''}`);
       b.setAttribute('role', 'option');
@@ -685,7 +704,7 @@
       } else {
         const m = item.manhwa;
         const left = pool.filter((c) => c.manhwa === m.id && !guessed.has(c.id)).length;
-        b.append(el('span', 'suggestion__tag', `@${m.short.replace(/\.$/, '')}`), el('span', 'suggestion__name', m.title), el('span', 'suggestion__meta', `${left} persos`));
+        b.append(el('span', 'suggestion__tag', `@${m.short.replace(/\.$/, '')}`), el('span', 'suggestion__name', m.title), el('span', 'suggestion__meta', t('sugg.left', { n: left })));
       }
       b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(item); });
       b.addEventListener('mouseenter', () => { active = i; highlight(); });
@@ -759,10 +778,10 @@
       const box = $('update');
       const v = version ? ` v${version}` : '';
       box.replaceChildren();
-      if (state === 'downloading') box.append(el('span', '', `[Une mise à jour${v} est en cours de téléchargement.]`));
+      if (state === 'downloading') box.append(el('span', '', t('update.downloading', { v })));
       else if (state === 'ready') {
-        box.append(el('span', '', `[La mise à jour${v} est prête. Elle s'installera à la fermeture.]`));
-        const now = el('button', 'link link--strong', '[Redémarrer maintenant]');
+        box.append(el('span', '', t('update.ready', { v })));
+        const now = el('button', 'link link--strong', t('update.restart'));
         now.addEventListener('click', () => window.manhwadle.installUpdate());
         box.append(now);
       } else return;
@@ -776,6 +795,7 @@
     $('quit').addEventListener('click', () => window.manhwadle.quit());
   }
 
+  renderStatic();
   loadGame();
   // Retour de connexion (site) : on affiche le compte.
   if (online && (online.takeJustLoggedIn() || accountMsg)) view = 'account';

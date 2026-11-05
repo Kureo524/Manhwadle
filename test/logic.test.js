@@ -100,6 +100,10 @@ test('partage : grille sans spoiler', () => {
     rows: [['no', 'ok', 'partial', 'unknown'], ['ok', 'ok', 'ok', 'ok']] });
   assert.equal(t, 'Manhwadle — Scénario #2\n[Réussi en 2 essais · série de 3 jours]\n🟥🟩🟨⬜\n🟩🟩🟩🟩\nhttps://x');
   assert.ok(L.shareText({ daily: false, won: false, rows: [['no']] }).includes('[Échec après 1 essai]'));
+  const en = L.shareText({ daily: true, day: '2026-11-05', won: true, streak: 3, url: 'https://x', lang: 'en',
+    rows: [['no', 'ok'], ['ok', 'ok']] });
+  assert.equal(en, 'Manhwadle — Scenario #2\n[Cleared in 2 guesses · 3-day streak]\n🟥🟩\n🟩🟩\nhttps://x');
+  assert.ok(L.shareText({ daily: false, won: false, rows: [['no']], lang: 'en' }).includes('[Failed after 1 guess]'));
 });
 
 test('mise à l\'échelle de la fenêtre : complète, puis compacte quand trop étroite', () => {
@@ -113,4 +117,26 @@ test('mise à l\'échelle de la fenêtre : complète, puis compacte quand trop �
     const z = zoomFor(w);
     assert.ok(z >= 0.7 && w / z < 760, `${w} px → zoom ${z}`);
   }
+});
+
+test('traductions : mêmes clés en français et en anglais, aucune valeur de fiche restée en français', () => {
+  const vm = require('node:vm');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const ctx = {
+    window: {}, document: { documentElement: {} }, navigator: { languages: ['en-US'] },
+    localStorage: { getItem: () => null, setItem: () => {} },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/i18n.js'), 'utf8'), ctx);
+  const I = ctx.window.I18n;
+  assert.equal(I.lang, 'en');
+  assert.deepEqual([...I.missingKeys()], []);
+  const chars = require('../data/characters.json');
+  const values = new Set(chars.flatMap((c) => ['gender', 'role', 'species', 'affiliations', 'powers', 'status', 'hair']
+    .flatMap((k) => (Array.isArray(c[k]) ? c[k] : [c[k]]))));
+  // Une valeur affichée telle quelle en anglais ne doit pas avoir l'air française.
+  const french = /[àâçéèêëîïôûùœ]|\b(de|du|des|la|le|les|et|Famille|Clan)\b/i;
+  const left = [...values].filter((v) => I.value(v) === v && french.test(v));
+  assert.deepEqual(left, []);
+  assert.equal(I.value('Famille Glayder'), 'Glayder Family');
 });

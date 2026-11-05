@@ -4,7 +4,7 @@
 // Puis on charge le jeu, script par script, dans l'ordre.
 (async function () {
   'use strict';
-  const SCRIPTS = ['logic.js', 'sky.js', 'glass-light.js', 'online.js', 'app.js'];
+  const SCRIPTS = ['i18n.js', 'logic.js', 'sky.js', 'glass-light.js', 'online.js', 'app.js'];
 
   // Windows / macOS : cadre natif et barre de titre intégrée (voir main.js).
   const platform = window.manhwadle?.platform;
@@ -27,6 +27,11 @@
       characters: characters.map((c) => ({ ...c, image: credits[c.id] ? `../assets/characters/${c.manhwa}/${c.id}.webp` : null })),
       demo: null,
     };
+    // PWA : le service worker (sw.js, à la racine du site) garde le jeu en cache pour le hors-ligne.
+    // Le chemin est relatif à <base href="src/">. Absent en développement local sans build du site.
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      navigator.serviceWorker.register('../sw.js').catch(() => {});
+    }
   }
 
   for (const src of SCRIPTS) {
