@@ -165,10 +165,13 @@
     // Appli installée sur téléphone : on rouvre la page Discord.
     if (loggingIn) { if (window.manhwadle.login) window.manhwadle.login(); else online.reopenLogin(); return; }
     loggingIn = true;
-    accountMsg = t(typeof window.manhwadle.login === 'function' ? 'msg.loginWindow' : online.waitingForApp ? 'msg.loginApp' : 'msg.loginRedirect');
+    accountMsg = t(typeof window.manhwadle.login === 'function' ? 'msg.loginWindow' : 'msg.loginRedirect');
     view = 'account';
     render();
-    const error = await online.login();
+    const error = await online.login((code) => {
+      accountMsg = t('msg.loginApp', { code });
+      renderView();
+    });
     loggingIn = false;
     accountMsg = error ? t(`login.${error}`) : '';
     if (error) { renderAccount(); renderView(); return; }

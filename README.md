@@ -100,7 +100,7 @@ cheveux.
 
 ## Direction artistique
 
-La base est **« Verre d'encre »** (`Docs/DA/DA-Verre-d-encre.md`) : jetons de couleur bleu-nuit,
+La base est **« Verre d'encre »** : jetons de couleur bleu-nuit,
 accent unique `#8aa8e0`, polices Gothic A1 / Barlow Condensed / IBM Plex Mono, rouge, jaune et
 vert réservés aux verdicts.
 
