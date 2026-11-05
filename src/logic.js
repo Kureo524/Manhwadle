@@ -21,6 +21,9 @@
     { key: 'hair', label: 'Cheveux', kind: 'set' },
   ];
 
+  const HINT_AT = 6;        // essais avant l'indice (portrait flouté)
+  const HINT_CLEAR_AT = 10; // essais avant un flou plus léger
+
   const isUnknown = (v) =>
     v === null || v === undefined || v === UNKNOWN || (Array.isArray(v) && (v.length === 0 || v.includes(UNKNOWN)));
 
@@ -175,7 +178,7 @@
   }
 
   const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, dailyCharacter, hash, normalize, parseQuery, search,
-    LAUNCH_DAY, dayNumber, liveStreak, shareText, loginCode };
+    LAUNCH_DAY, dayNumber, liveStreak, shareText, loginCode, HINT_AT, HINT_CLEAR_AT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.Logic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -7,6 +7,7 @@ compatibility_date = "2026-10-01"
 SITE_URL = "https://kureo524.github.io/Manhwadle/"
 DISCORD_CLIENT_ID = "1567602819027181668"
 # DISCORD_CLIENT_SECRET : secret, via `npx wrangler secret put DISCORD_CLIENT_SECRET`
+# DAILY_SECRET : secret du perso du jour, via `npx wrangler secret put DAILY_SECRET`
 
 [[d1_databases]]
 binding = "DB"
@@ -33,3 +34,9 @@ simple = { limit = 60, period = 60 }
 # Purge quotidienne des sessions et des demandes de connexion expirées.
 [triggers]
 crons = ["0 4 * * *"]
+
+# Images d'indice du perso du jour (tools/hints.mjs) : jamais servies directement, le Worker passe toujours d'abord.
+[assets]
+directory = "./hints"
+binding = "ASSETS"
+run_worker_first = true

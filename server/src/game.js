@@ -35,6 +35,19 @@ export function validateDailyGame(body, characters, now = Date.now()) {
   return { day, guesses: ids.length, won: at === ids.length - 1 };
 }
 
+/** Choisit le personnage du jour à partir d'une empreinte secrète (octets), indépendamment de l'ordre du fichier. */
+export function pickDailyId(characters, digest) {
+  const ids = characters.map((c) => c.id).sort();
+  return ids[new DataView(digest).getUint32(0) % ids.length];
+}
+
+/** Comparaison d'un essai, réduite à ce que le joueur doit savoir : rien sur le personnage mystère au-delà des états. */
+export const guessResults = (guess, target) =>
+  Logic.compare(guess, target).map(({ key, state, dir }) => ({ key, state, ...(dir ? { dir } : {}) }));
+
+/** Niveau d'indice atteint après n essais : 0 (aucun), 1 (très flou), 2 (plus net). */
+export const hintLevel = (n) => (n >= Logic.HINT_CLEAR_AT ? 2 : n >= Logic.HINT_AT ? 1 : 0);
+
 /** Nouvelles statistiques d'un joueur après une partie du jour (déjà validée). */
 export function nextStats(user, game) {
   if (user.last_day && game.day <= user.last_day) throw new Error('Scénario déjà joué (ou plus ancien que le dernier joué).');

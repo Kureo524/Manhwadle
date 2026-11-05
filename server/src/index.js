@@ -8,18 +8,25 @@
 //   POST   /auth/logout             → ferme la session
 //   GET    /me                      → profil et statistiques du joueur
 //   DELETE /me                      → supprime le compte et toutes ses données
-//   POST   /games/daily             → enregistre la partie du jour (vérifiée par le serveur)
+//   POST   /games/daily             → ancienne route : partie entière envoyée par le client
+//   GET    /games/daily             → partie du jour du joueur (reprise sur n'importe quel appareil)
+//   POST   /games/daily/guess       → enregistre un essai, renvoie sa comparaison
+//   POST   /games/daily/give-up     → abandonne la partie du jour
+//   GET    /games/daily/hint        → image d'indice, selon le nombre d'essais
 //   GET    /leaderboard             → classement des séries
 //
 // Authentification : en-tête « Authorization: Bearer <jeton> » (pas de cookie, donc pas de CSRF).
 import characters from '../../data/characters.json';
 import Logic from '../../src/logic.js';
-import { validateDailyGame, nextStats, liveStreak } from './game.js';
+import { validateDailyGame, nextStats, liveStreak, pickDailyId, guessResults, hintLevel, MAX_GUESSES, utcDay, addDays } from './game.js';
 
 const SESSION_DAYS = 90;
 const STATE_MINUTES = 10;
 const STATE_COOKIE = '__Host-manhwadle_state';
 const MAX_BODY = 8192;
+const LEADERBOARD_SECONDS = 60;
+const DAILY_KEEP_DAYS = 7; // durée de conservation du détail des essais
+const byId = new Map(characters.map((c) => [c.id, c]));
 
 // Limites de débit par route et par adresse IP (binding déclaré dans wrangler.toml).
 const LIMITS = {
@@ -27,6 +34,10 @@ const LIMITS = {
   'POST /auth/discord/confirm': 'LIMIT_AUTH',
   'POST /auth/poll': 'LIMIT_POLL',
   'POST /games/daily': 'LIMIT_API',
+  'GET /games/daily': 'LIMIT_API',
+  'POST /games/daily/guess': 'LIMIT_API',
+  'POST /games/daily/give-up': 'LIMIT_API',
+  'GET /games/daily/hint': 'LIMIT_API',
   'GET /leaderboard': 'LIMIT_API',
 };
 
@@ -239,8 +250,13 @@ async function callback(request, env) {
 // Purge quotidienne (Cron Trigger) : tout ce qui est expiré, indépendamment des connexions.
 async function purgeExpired(env) {
   const now = new Date().toISOString();
-  await env.DB.batch(['sessions', 'oauth_states', 'login_polls'].map((table) =>
-    env.DB.prepare(`DELETE FROM ${table} WHERE expires_at < ?`).bind(now)));
+  const oldDay = addDays(utcDay(), -DAILY_KEEP_DAYS);
+  await env.DB.batch([
+    ...['sessions', 'oauth_states', 'login_polls'].map((table) =>
+      env.DB.prepare(`DELETE FROM ${table} WHERE expires_at < ?`).bind(now)),
+    env.DB.prepare('DELETE FROM daily_guesses WHERE day < ?').bind(oldDay),
+    env.DB.prepare('DELETE FROM daily_targets WHERE day < ?').bind(oldDay),
+  ]);
 }
 
 // Nouvelle session : le jeton part chez le joueur, le serveur n'en garde que l'empreinte.
@@ -264,8 +280,119 @@ async function poll(request, env) {
   return json({ session: await newSession(env, row.user_id) });
 }
 
+// ---------- Perso du jour (joué côté serveur) ----------
+// Le personnage est choisi par HMAC(secret, jour) puis figé en base : ajouter un personnage ou
+// redéployer en cours de journée ne le change pas. Le jour change à minuit UTC pour tout le monde.
+async function dailyTargetId(env, day) {
+  if (!env.DAILY_SECRET) throw Object.assign(new Error('Perso du jour non configuré.'), { status: 503 });
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.DAILY_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`manhwadle:${day}`));
+  await env.DB.prepare('INSERT OR IGNORE INTO daily_targets (day, character_id) VALUES (?, ?)')
+    .bind(day, pickDailyId(characters, digest)).run();
+  return (await env.DB.prepare('SELECT character_id FROM daily_targets WHERE day = ?').bind(day).first()).character_id;
+}
+
+async function dailyGuessIds(env, user, day) {
+  const { results } = await env.DB.prepare('SELECT character_id FROM daily_guesses WHERE user_id = ? AND day = ? ORDER BY position')
+    .bind(user.id, day).all();
+  return results.map((r) => r.character_id);
+}
+
+// État de la partie du jour. L'identité du personnage n'en fait partie qu'une fois la partie terminée.
+async function dailyState(env, user, now = Date.now()) {
+  const day = utcDay(now);
+  const targetId = await dailyTargetId(env, day);
+  const target = byId.get(targetId);
+  const ids = await dailyGuessIds(env, user, day);
+  const row = await env.DB.prepare('SELECT won FROM daily_games WHERE user_id = ? AND day = ?').bind(user.id, day).first();
+  // last_day après aujourd'hui : partie déjà comptée par une ancienne version de l'appli, sur son jour local.
+  const done = !!row || (!!user.last_day && user.last_day > day);
+  return {
+    day,
+    guesses: ids.map((id) => ({ id, results: guessResults(byId.get(id), target) })),
+    done,
+    won: !!row?.won,
+    target: done ? targetId : null,
+    hint: done ? 0 : hintLevel(ids.length),
+    profile: publicProfile(user),
+  };
+}
+
+async function readDailyBody(request) {
+  try {
+    return JSON.parse(await readBody(request)) ?? {};
+  } catch (e) {
+    if (e.status) throw e;
+    return {};
+  }
+}
+
+// Écrit l'essai éventuel et, si la partie se termine, le résultat et les statistiques, d'un seul bloc.
+async function finishDaily(env, user, day, count, won, extra = []) {
+  const next = nextStats(user, { day, guesses: count, won });
+  await env.DB.batch([
+    ...extra,
+    env.DB.prepare('INSERT INTO daily_games (user_id, day, guesses, won) VALUES (?, ?, ?, ?)').bind(user.id, day, count, won ? 1 : 0),
+    env.DB.prepare(`UPDATE users SET streak = ?, best = ?, played = ?, won = ?, guesses = ?, last_day = ?
+                    WHERE id = ? AND (last_day IS NULL OR last_day < ?)`)
+      .bind(next.streak, next.best, next.played, next.won, next.guesses, next.last_day, user.id, day),
+  ]).catch(() => { throw new Error('conflict'); });
+  return { ...user, ...next };
+}
+
+async function dailyGuess(request, env, user) {
+  const { id, day } = await readDailyBody(request);
+  const state = await dailyState(env, user);
+  if (day !== state.day) return json({ error: 'Le scénario du jour a changé.', code: 'day-changed' }, 409);
+  if (state.done) return fail('Scénario déjà joué.', 409);
+  if (typeof id !== 'string' || !byId.has(id)) return json({ error: 'Personnage inconnu : mets à jour le jeu.', code: 'update' }, 400);
+  if (state.guesses.some((g) => g.id === id)) return fail('Essai en double.', 409);
+  if (state.guesses.length >= MAX_GUESSES) return fail("Trop d'essais.", 409);
+
+  const insert = env.DB.prepare('INSERT INTO daily_guesses (user_id, day, position, character_id) VALUES (?, ?, ?, ?)')
+    .bind(user.id, state.day, state.guesses.length, id);
+  if (id === await dailyTargetId(env, state.day)) {
+    return json(await dailyState(env, await finishDaily(env, user, state.day, state.guesses.length + 1, true, [insert])));
+  }
+  await insert.run().catch(() => { throw new Error('conflict'); });
+  return json(await dailyState(env, user));
+}
+
+async function dailyGiveUp(request, env, user) {
+  const { day } = await readDailyBody(request);
+  const state = await dailyState(env, user);
+  if (day !== state.day) return json({ error: 'Le scénario du jour a changé.', code: 'day-changed' }, 409);
+  if (state.done) return fail('Scénario déjà joué.', 409);
+  return json(await dailyState(env, await finishDaily(env, user, state.day, state.guesses.length, false)));
+}
+
+// L'image passe par le Worker, à une adresse fixe : son nom ne dit rien du personnage.
+async function dailyHint(request, env, user) {
+  const day = utcDay();
+  const level = hintLevel((await dailyGuessIds(env, user, day)).length);
+  if (!level) return fail('Indice pas encore disponible.', 403);
+  const asset = await env.ASSETS.fetch(new URL(`/${await dailyTargetId(env, day)}-${level}.webp`, request.url));
+  if (!asset.ok) return fail("Pas d'indice pour ce scénario.", 404);
+  return new Response(asset.body, { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...CORS } });
+}
+
+async function leaderboard(request, env, ctx) {
+  const cache = caches.default;
+  const key = new Request(new URL('/leaderboard', request.url));
+  const cached = await cache.match(key);
+  if (cached) return cached;
+  const { results } = await env.DB.prepare(
+    `SELECT id, name, avatar, streak, best, played, won, guesses, last_day FROM users
+     WHERE played > 0 AND hidden = 0 ORDER BY best DESC, streak DESC, won DESC LIMIT 50`,
+  ).all();
+  const res = json({ players: results.map(publicProfile) });
+  res.headers.set('Cache-Control', `public, max-age=${LEADERBOARD_SECONDS}`);
+  ctx.waitUntil(cache.put(key, res.clone()));
+  return res;
+}
+
 // ---------- Routes ----------
-async function route(request, env) {
+async function route(request, env, ctx) {
   const { pathname } = new URL(request.url);
   const method = request.method;
 
@@ -283,13 +410,7 @@ async function route(request, env) {
   if (method === 'GET' && pathname === '/auth/discord/callback') return callback(request, env);
   if (method === 'POST' && pathname === '/auth/poll') return poll(request, env);
 
-  if (method === 'GET' && pathname === '/leaderboard') {
-    const { results } = await env.DB.prepare(
-      `SELECT id, name, avatar, streak, best, played, won, guesses, last_day FROM users
-       WHERE played > 0 ORDER BY best DESC, streak DESC, won DESC LIMIT 50`,
-    ).all();
-    return json({ players: results.map(publicProfile) });
-  }
+  if (method === 'GET' && pathname === '/leaderboard') return leaderboard(request, env, ctx);
 
   const user = await currentUser(request, env);
   if (!user) return fail('Connexion requise.', 401);
@@ -307,10 +428,16 @@ async function route(request, env) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM daily_games WHERE user_id = ?').bind(user.id),
+      env.DB.prepare('DELETE FROM daily_guesses WHERE user_id = ?').bind(user.id),
       env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
     ]);
     return json({ ok: true });
   }
+
+  if (method === 'GET' && pathname === '/games/daily') return json(await dailyState(env, user));
+  if (method === 'POST' && pathname === '/games/daily/guess') return dailyGuess(request, env, user);
+  if (method === 'POST' && pathname === '/games/daily/give-up') return dailyGiveUp(request, env, user);
+  if (method === 'GET' && pathname === '/games/daily/hint') return dailyHint(request, env, user);
 
   if (method === 'POST' && pathname === '/games/daily') {
     const body = await readBody(request);
@@ -336,13 +463,13 @@ async function route(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     try {
-      return await route(request, env);
+      return await route(request, env, ctx);
     } catch (e) {
       if (e.message === 'conflict') return fail('Scénario déjà joué.', 409);
-      if (e.status === 413) return fail(e.message, 413);
+      if (e.status === 413 || e.status === 503) return fail(e.message, e.status);
       console.error(e);
       return fail('Erreur interne.', 500);
     }
