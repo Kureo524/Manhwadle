@@ -59,7 +59,7 @@ await writeFile(join(site, 'manifest.webmanifest'), JSON.stringify({
 
 // Service worker : la liste des fichiers et leur empreinte sont figées à chaque build.
 // Un contenu modifié change le nom du cache : le téléphone télécharge la nouvelle version
-// en arrière-plan et l'utilise au lancement suivant.
+// en arrière-plan, et le jeu propose de redémarrer pour l'utiliser.
 async function walk(dir) {
   const out = [];
   for (const e of await readdir(dir, { withFileTypes: true })) {
