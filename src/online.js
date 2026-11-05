@@ -5,11 +5,8 @@
   const API = 'https://manhwadle-api.kureo.workers.dev';
   const KEY = 'manhwadle.session';
 
-  const LOGIN_ERRORS = {
-    annule: 'Connexion annulée.',
-    expire: 'La demande de connexion a expiré. Réessaie.',
-    erreur: 'Discord n\'a pas pu confirmer la connexion. Réessaie.',
-  };
+  const LOGIN_ERRORS = ['annule', 'expire', 'erreur']; // codes renvoyés par l'API (#login=…), traduits par i18n.js
+  const loginCode = (c) => (LOGIN_ERRORS.includes(c) ? c : 'erreur');
 
   // Le jeton de session reste dans ce navigateur (ou cette appli) ; le serveur n'en garde que l'empreinte.
   const readToken = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
@@ -24,7 +21,7 @@
   const params = new URLSearchParams(location.hash.slice(1));
   if (params.has('session') || params.has('login')) {
     if (validToken(params.get('session'))) { writeToken(params.get('session')); justLoggedIn = true; }
-    else notice = LOGIN_ERRORS[params.get('login')] ?? LOGIN_ERRORS.erreur;
+    else notice = loginCode(params.get('login'));
     history.replaceState(null, '', location.pathname + location.search);
   }
 
@@ -43,21 +40,21 @@
 
   window.Online = {
     get signedIn() { return !!readToken(); },
-    /** Message à afficher une fois (retour de connexion), puis oublié. */
+    /** Code d'erreur de connexion à afficher une fois (retour sur le site), puis oublié. */
     takeNotice() { const n = notice; notice = null; return n; },
     /** Vrai une seule fois, juste après une connexion réussie sur le site. */
     takeJustLoggedIn() { const v = justLoggedIn; justLoggedIn = false; return v; },
 
     /**
      * Connexion Discord. Appli : fenêtre de connexion gérée par le processus principal,
-     * renvoie un message d'erreur ou null. Site : la page part vers Discord et revient avec #session=.
+     * renvoie un code d'erreur (annule, expire, erreur) ou null. Site : la page part vers Discord et revient avec #session=.
      */
     async login() {
       if (typeof window.manhwadle.login === 'function') {
         const r = await window.manhwadle.login();
-        if (!r) return LOGIN_ERRORS.annule;
+        if (!r) return 'annule';
         if (validToken(r.session)) { writeToken(r.session); return null; }
-        return LOGIN_ERRORS[r.error] ?? LOGIN_ERRORS.erreur;
+        return loginCode(r.error);
       }
       location.href = `${API}/auth/discord`;
       return new Promise(() => {}); // la page change

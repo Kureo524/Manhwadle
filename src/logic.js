@@ -7,7 +7,8 @@
   const CHAPTER_CLOSE = 10;
   const UNKNOWN = '?';
 
-  // Colonnes affichées, dans l'ordre. `kind` choisit la règle de comparaison.
+  // Colonnes affichées, dans l'ordre. `kind` choisit la règle de comparaison ; les titres affichés
+  // sont traduits par i18n.js (clé col.<key>).
   const COLUMNS = [
     { key: 'manhwa', label: 'Manhwa', kind: 'exact' },
     { key: 'gender', label: 'Genre', kind: 'exact' },
@@ -138,12 +139,26 @@
 
   const SQUARE = { ok: '🟩', partial: '🟨', no: '🟥', unknown: '⬜' };
 
+  const plural = (n, word, many = `${word}s`) => `${n} ${n > 1 ? many : word}`;
+  const SHARE = {
+    fr: {
+      daily: (k) => `Manhwadle — Scénario #${k}`, side: 'Manhwadle — Scénario secondaire',
+      won: (n, streak) => `[Réussi en ${plural(n, 'essai')}${streak ? ` · série de ${plural(streak, 'jour')}` : ''}]`,
+      lost: (n) => `[Échec après ${plural(n, 'essai')}]`,
+    },
+    en: {
+      daily: (k) => `Manhwadle — Scenario #${k}`, side: 'Manhwadle — Sub Scenario',
+      won: (n, streak) => `[Cleared in ${plural(n, 'guess', 'guesses')}${streak ? ` · ${streak}-day streak` : ''}]`,
+      lost: (n) => `[Failed after ${plural(n, 'guess', 'guesses')}]`,
+    },
+  };
+
   /** Texte à partager : une ligne de carrés par essai, sans nommer aucun personnage. */
-  function shareText({ daily, day, won, rows, streak, url }) {
-    const title = daily ? `Manhwadle — Scénario #${dayNumber(day)}` : 'Manhwadle — Scénario secondaire';
+  function shareText({ daily, day, won, rows, streak, url, lang = 'fr' }) {
+    const tr = SHARE[lang] ?? SHARE.fr;
+    const title = daily ? tr.daily(dayNumber(day)) : tr.side;
     const n = rows.length;
-    const result = won ? `[Réussi en ${n} essai${n > 1 ? 's' : ''}${daily && streak ? ` · série de ${streak} jour${streak > 1 ? 's' : ''}` : ''}]`
-      : `[Échec après ${n} essai${n > 1 ? 's' : ''}]`;
+    const result = won ? tr.won(n, daily ? streak : 0) : tr.lost(n);
     const grid = rows.map((states) => states.map((st) => SQUARE[st] ?? SQUARE.unknown).join(''));
     return [title, result, ...grid, url].filter(Boolean).join('\n');
   }

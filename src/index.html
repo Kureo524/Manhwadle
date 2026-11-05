@@ -13,14 +13,14 @@
     <header class="top">
       <div class="brand">
         <span class="brand__name">Manhwadle</span>
-        <span class="brand__channel system">Star Stream · canal #MW-0107</span>
+        <span class="brand__channel system" data-i18n="brand.channel">Star Stream · canal #MW-0107</span>
       </div>
-      <nav class="tabs" id="mode" aria-label="Mode de jeu">
+      <nav class="tabs" id="mode" aria-label="Mode de jeu" data-i18n-aria="nav.label">
         <span class="tabs__line" aria-hidden="true"></span>
-        <button class="tabs__item" data-mode="daily">Perso du jour</button>
-        <button class="tabs__item" data-mode="endless">Infini</button>
-        <button class="tabs__item" data-view="ranking">Classement</button>
-        <button class="tabs__item" data-view="account">Compte</button>
+        <button class="tabs__item" data-mode="daily" data-i18n="tab.daily">Perso du jour</button>
+        <button class="tabs__item" data-mode="endless" data-i18n="tab.endless">Infini</button>
+        <button class="tabs__item" data-view="ranking" data-i18n="tab.ranking">Classement</button>
+        <button class="tabs__item" data-view="account" data-i18n="tab.account">Compte</button>
       </nav>
       <span class="top__info system" id="pool-info"></span>
       <div class="account system" id="account"></div>
@@ -35,17 +35,17 @@
         <div class="search">
           <span class="search__prompt system" aria-hidden="true">&gt;</span>
           <input class="search__input" id="search" type="text" autocomplete="off" spellcheck="false"
-                 placeholder="Nomme une incarnation…" aria-label="Nom du personnage">
-          <button class="link link--danger" id="give-up" hidden>Abandonner</button>
+                 placeholder="Nomme une incarnation…" aria-label="Nom du personnage" data-i18n-aria="search.label">
+          <button class="link link--danger" id="give-up" hidden data-i18n="giveUp">Abandonner</button>
         </div>
         <div class="ask__meta">
           <div class="filters" id="filters" hidden></div>
-          <div class="legend" aria-label="Lecture des cases">
-            <span class="legend__item"><i class="dot dot--ok"></i>exact</span>
-            <span class="legend__item"><i class="dot dot--partial"></i>partiel · chapitre à 10 près</span>
-            <span class="legend__item"><i class="dot dot--no"></i>faux</span>
-            <span class="legend__item"><i class="dot dot--unknown"></i>inconnu</span>
-            <span class="legend__item legend__item--tip system">@ORV liste un manhwa</span>
+          <div class="legend" aria-label="Lecture des cases" data-i18n-aria="legend.label">
+            <span class="legend__item"><i class="dot dot--ok"></i><span data-i18n="legend.ok">exact</span></span>
+            <span class="legend__item"><i class="dot dot--partial"></i><span data-i18n="legend.partial">partiel · chapitre à 10 près</span></span>
+            <span class="legend__item"><i class="dot dot--no"></i><span data-i18n="legend.no">faux</span></span>
+            <span class="legend__item"><i class="dot dot--unknown"></i><span data-i18n="legend.unknown">inconnu</span></span>
+            <span class="legend__item legend__item--tip system" data-i18n="legend.tip">@ORV liste un manhwa</span>
           </div>
         </div>
       </div>
@@ -58,7 +58,7 @@
     </main>
 
     <footer class="stats system" id="stats"></footer>
-    <button class="link quit" id="quit" title="Quitter (Ctrl+Q)" hidden>[Quitter]</button>
+    <button class="link quit" id="quit" title="Quitter (Ctrl+Q)" hidden data-i18n="quit" data-i18n-title="quit.title">[Quitter]</button>
   </div>
 
   <div class="suggestions" id="suggestions" role="listbox" hidden></div>

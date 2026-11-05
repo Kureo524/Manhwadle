@@ -4,7 +4,7 @@
 // Puis on charge le jeu, script par script, dans l'ordre.
 (async function () {
   'use strict';
-  const SCRIPTS = ['logic.js', 'sky.js', 'glass-light.js', 'online.js', 'app.js'];
+  const SCRIPTS = ['i18n.js', 'logic.js', 'sky.js', 'glass-light.js', 'online.js', 'app.js'];
 
   // Windows / macOS : cadre natif et barre de titre intégrée (voir main.js).
   const platform = window.manhwadle?.platform;
