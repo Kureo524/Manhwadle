@@ -2,6 +2,7 @@
 // au dernier essai, sans la barre du haut ni la ligne de statistiques — et la copie dans
 // le presse-papiers. La page passe d'abord en « mode capture » (voir .is-capturing dans le CSS).
 const { BrowserWindow, clipboard, ClipboardItem } = require('electron');
+const { captureRect } = require('./share-rect');
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const PAD = 16; // marge autour de la zone, en px CSS
@@ -28,15 +29,7 @@ async function captureGameArea(wc) {
       m = await wc.executeJavaScript(MEASURE);
     }
     const [cw, ch] = win.getContentSize();
-    const k = cw / m.vw; // px CSS → px fenêtre
-    const x = Math.max(0, Math.floor((m.x - PAD) * k));
-    const y = Math.max(0, Math.floor((m.y - PAD) * k));
-    const rect = {
-      x, y,
-      width: Math.min(cw - x, Math.ceil((m.w + 2 * PAD) * k)),
-      height: Math.min(ch - y, Math.ceil((m.h + 2 * PAD) * k)),
-    };
-    return await wc.capturePage(rect);
+    return await wc.capturePage(captureRect(m, cw, ch, PAD));
   } finally {
     wc.setZoomFactor(zoom);
     await wc.executeJavaScript(`document.documentElement.classList.remove('is-capturing')`).catch(() => {});

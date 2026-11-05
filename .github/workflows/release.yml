@@ -52,7 +52,7 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: node --test test/logic.test.js
+      - run: npm test
 
       - name: Build
         shell: bash
