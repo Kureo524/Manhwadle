@@ -2,6 +2,7 @@
 //
 //   GET    /auth/discord            → redirige vers Discord (connexion)
 //   GET    /auth/discord/callback   → crée la session, renvoie vers le site avec #session=<jeton>
+//   POST   /auth/poll               → appli installée (PWA) : récupère la session une fois la connexion faite
 //   POST   /auth/logout             → ferme la session
 //   GET    /me                      → profil et statistiques du joueur
 //   DELETE /me                      → supprime le compte et toutes ses données
@@ -61,11 +62,18 @@ const publicProfile = (u) => ({
 // ---------- Connexion Discord ----------
 const callbackUrl = (request) => new URL('/auth/discord/callback', request.url).href;
 
+// Appli installée : ?poll=<SHA-256 hex d'un code secret gardé par l'appli>. La connexion se fait
+// dans le navigateur (ou l'appli Discord), puis l'appli récupère la session via POST /auth/poll.
+const POLL_HASH = /^[0-9a-f]{64}$/;
+const POLL_KEY = /^[A-Za-z0-9_-]{32,128}$/;
+
 async function login(request, env) {
   if (!env.DISCORD_CLIENT_ID) return fail('Connexion Discord non configurée.', 503);
+  const poll = new URL(request.url).searchParams.get('poll');
+  if (poll !== null && !POLL_HASH.test(poll)) return fail('Paramètre poll invalide.');
   const state = randomToken();
-  await env.DB.prepare('INSERT INTO oauth_states (state, expires_at) VALUES (?, ?)')
-    .bind(state, isoIn(STATE_MINUTES * 60e3)).run();
+  await env.DB.prepare('INSERT INTO oauth_states (state, expires_at, poll_hash) VALUES (?, ?, ?)')
+    .bind(state, isoIn(STATE_MINUTES * 60e3), poll).run();
   const url = new URL('https://discord.com/oauth2/authorize');
   url.search = new URLSearchParams({
     client_id: env.DISCORD_CLIENT_ID, response_type: 'code', scope: 'identify',
@@ -74,15 +82,43 @@ async function login(request, env) {
   return Response.redirect(url.href, 302);
 }
 
+// Page affichée à la fin d'une connexion lancée depuis l'appli installée.
+const DONE_PAGE = {
+  ok: ['Connexion réussie', 'Tu peux revenir dans Manhwadle.', 'Logged in — you can go back to Manhwadle.'],
+  annule: ['Connexion annulée', 'Reviens dans Manhwadle pour réessayer.', 'Login cancelled — go back to Manhwadle to try again.'],
+  expire: ['Demande expirée', 'Reviens dans Manhwadle pour réessayer.', 'The request expired — go back to Manhwadle to try again.'],
+  erreur: ['Connexion impossible', 'Reviens dans Manhwadle pour réessayer.', 'Login failed — go back to Manhwadle to try again.'],
+};
+function donePage(code) {
+  const [title, fr, en] = DONE_PAGE[code];
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manhwadle — ${title}</title><style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0c0c12;color:#e8eefa;font:15px/1.6 system-ui,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
+h1{font:400 16px/1.4 ui-monospace,monospace;color:#a9c4f0;margin:0 0 12px}p{margin:4px 0}.en{color:#8a8a9c;font-size:13px}
+</style></head><body><main><h1>[${title}]</h1><p>${fr}</p><p class="en">${en}</p></main></body></html>`;
+  return new Response(html, { status: code === 'ok' ? 200 : 400, headers: {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'",
+    'Cache-Control': 'no-store',
+  } });
+}
+
 async function callback(request, env) {
   const params = new URL(request.url).searchParams;
-  const back = (fragment) => Response.redirect(`${env.SITE_URL}#${fragment}`, 302);
-  if (params.get('error')) return back('login=annule');
 
   // L'état doit exister, ne pas être expiré, et ne sert qu'une fois.
   const state = params.get('state') ?? '';
-  const row = await env.DB.prepare('DELETE FROM oauth_states WHERE state = ? RETURNING expires_at').bind(state).first();
-  if (!row || row.expires_at < new Date().toISOString()) return back('login=expire');
+  const row = await env.DB.prepare('DELETE FROM oauth_states WHERE state = ? RETURNING expires_at, poll_hash').bind(state).first();
+  const pollHash = row?.poll_hash ?? null;
+  // Site : retour vers la page avec #session= ou #login=. Appli installée : résultat mis de côté pour /auth/poll.
+  const back = async (code, userId = null) => {
+    if (!pollHash) return Response.redirect(`${env.SITE_URL}#${code === 'ok' ? `session=${await newSession(env, userId)}` : `login=${code}`}`, 302);
+    await env.DB.prepare('INSERT OR REPLACE INTO login_polls (poll_hash, user_id, error, expires_at) VALUES (?, ?, ?, ?)')
+      .bind(pollHash, userId, code === 'ok' ? null : code, isoIn(STATE_MINUTES * 60e3)).run();
+    return donePage(code);
+  };
+  if (params.get('error')) return back('annule');
+  if (!row || row.expires_at < new Date().toISOString()) return back('expire');
 
   const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
     method: 'POST',
@@ -92,23 +128,43 @@ async function callback(request, env) {
       grant_type: 'authorization_code', code: params.get('code') ?? '', redirect_uri: callbackUrl(request),
     }),
   });
-  if (!tokenRes.ok) return back('login=erreur');
+  if (!tokenRes.ok) return back('erreur');
   const { access_token: accessToken } = await tokenRes.json();
   const meRes = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!meRes.ok) return back('login=erreur');
+  if (!meRes.ok) return back('erreur');
   const me = await meRes.json();
   const name = String(me.global_name || me.username || 'Incarnation').slice(0, 40);
 
-  const token = randomToken();
+  const now = new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO users (id, name, avatar) VALUES (?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar`)
       .bind(String(me.id), name, me.avatar ?? null),
-    env.DB.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
-      .bind(await sha256(token), String(me.id), isoIn(SESSION_DAYS * 864e5)),
-    env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ?').bind(new Date().toISOString()),
+    env.DB.prepare('DELETE FROM oauth_states WHERE expires_at < ?').bind(now),
+    env.DB.prepare('DELETE FROM login_polls WHERE expires_at < ?').bind(now),
   ]);
-  return back(`session=${token}`);
+  return back('ok', String(me.id));
+}
+
+// Nouvelle session : le jeton part chez le joueur, le serveur n'en garde que l'empreinte.
+async function newSession(env, userId) {
+  const token = randomToken();
+  await env.DB.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
+    .bind(await sha256(token), userId, isoIn(SESSION_DAYS * 864e5)).run();
+  return token;
+}
+
+// Appli installée : { poll: <code secret> } → { pending: true } tant que la connexion n'est pas finie,
+// puis, une seule fois, { session } ou { error }.
+async function poll(request, env) {
+  if (Number(request.headers.get('Content-Length') ?? 0) > 1024) return fail('Requête trop grande.', 413);
+  const key = (await request.json().catch(() => ({})))?.poll;
+  if (typeof key !== 'string' || !POLL_KEY.test(key)) return fail('Paramètre poll invalide.');
+  const row = await env.DB.prepare('DELETE FROM login_polls WHERE poll_hash = ? AND expires_at > ? RETURNING user_id, error')
+    .bind(await sha256(key), new Date().toISOString()).first();
+  if (!row) return json({ pending: true });
+  if (row.error || !row.user_id) return json({ error: row.error ?? 'erreur' });
+  return json({ session: await newSession(env, row.user_id) });
 }
 
 // ---------- Routes ----------
@@ -118,6 +174,7 @@ async function route(request, env) {
 
   if (method === 'GET' && pathname === '/auth/discord') return login(request, env);
   if (method === 'GET' && pathname === '/auth/discord/callback') return callback(request, env);
+  if (method === 'POST' && pathname === '/auth/poll') return poll(request, env);
 
   if (method === 'GET' && pathname === '/leaderboard') {
     const { results } = await env.DB.prepare(

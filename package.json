@@ -1,7 +1,7 @@
 {
   "name": "manhwadle",
   "productName": "Manhwadle",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Jeu de déduction de personnages de manhwa",
   "main": "main.js",
   "private": true,
