@@ -6,18 +6,6 @@
       <stop offset="1" stop-color="#a9c4f0" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <!-- Constellation discrète -->
-  <g stroke="#8aa8e0" stroke-opacity=".28" stroke-width="2" fill="none">
-    <path d="M150 352 L196 300 M316 212 L366 170 L382 214"/>
-  </g>
-  <g fill="#e8eefa">
-    <circle cx="150" cy="352" r="3.5" opacity=".7"/>
-    <circle cx="196" cy="300" r="2.5" opacity=".5"/>
-    <circle cx="366" cy="170" r="3.5" opacity=".7"/>
-    <circle cx="382" cy="214" r="2.5" opacity=".5"/>
-    <circle cx="170" cy="168" r="2" opacity=".45"/>
-    <circle cx="348" cy="350" r="2" opacity=".45"/>
-  </g>
   <!-- Coins en équerre de la fenêtre système -->
   <g stroke="#a9c4f0" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <path d="M118 182 V146 Q118 118 146 118 H182"/>
