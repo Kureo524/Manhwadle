@@ -1,7 +1,7 @@
 // Partage en image (appli de bureau) : capture la zone de jeu — de la fenêtre de scénario
 // au dernier essai, sans la barre du haut ni la ligne de statistiques — et la copie dans
 // le presse-papiers. La page passe d'abord en « mode capture » (voir .is-capturing dans le CSS).
-const { BrowserWindow, clipboard } = require('electron');
+const { BrowserWindow, clipboard, ClipboardItem } = require('electron');
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const PAD = 16; // marge autour de la zone, en px CSS
@@ -43,9 +43,13 @@ async function captureGameArea(wc) {
   }
 }
 
-/** Capture la zone de jeu et la copie dans le presse-papiers. */
+/**
+ * Capture la zone de jeu et la copie dans le presse-papiers (PNG).
+ * Electron 45 : l'API du presse-papiers est asynchrone, sur le modèle du web (writeImage n'existe plus).
+ */
 async function copyGameArea(wc) {
-  clipboard.writeImage(await captureGameArea(wc));
+  const png = (await captureGameArea(wc)).toPNG();
+  await clipboard.write([new ClipboardItem({ 'image/png': new Blob([png], { type: 'image/png' }) })]);
   return true;
 }
 
