@@ -27,6 +27,11 @@
       characters: characters.map((c) => ({ ...c, image: credits[c.id] ? `../assets/characters/${c.manhwa}/${c.id}.webp` : null })),
       demo: null,
     };
+    // PWA : le service worker (sw.js, à la racine du site) garde le jeu en cache pour le hors-ligne.
+    // Le chemin est relatif à <base href="src/">. Absent en développement local sans build du site.
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      navigator.serviceWorker.register('../sw.js').catch(() => {});
+    }
   }
 
   for (const src of SCRIPTS) {

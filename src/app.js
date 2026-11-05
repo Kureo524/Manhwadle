@@ -275,6 +275,8 @@
       const cells = [who, ...L.compare(c, game.target).map(cell)];
       cells.forEach((node, i) => {
         if (row === 0 && animateFirst) { node.classList.add('reveal'); node.style.animationDelay = `${i * 70}ms`; }
+        // Nom de la colonne (repris de l'en-tête), affiché dans les cartes d'essai sur téléphone.
+        if (i > 0) node.dataset.label = grid.children[i].textContent;
         grid.append(node);
       });
     });

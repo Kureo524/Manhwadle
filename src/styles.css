@@ -370,6 +370,38 @@ html.has-titlebar .link.quit { display: none; }
   .board__row > :nth-child(5), .board__row > :nth-child(6) { display: none; }
 }
 
+/* ---------- Téléphone (version web / PWA) ----------
+   Onglets sur toute la largeur, et chaque essai devient une carte : le personnage en haut,
+   puis ses 9 cases en 3 × 3, chacune avec le nom de sa colonne (data-label, posé par app.js). */
+@media (max-width: 560px) {
+  html { -webkit-tap-highlight-color: transparent; }
+  .top {
+    gap: 6px 12px;
+    padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 4px max(14px, env(safe-area-inset-left));
+  }
+  .brand { margin-right: auto; }
+  .tabs { order: 3; width: 100%; margin-left: 0; justify-content: space-between; gap: 0; }
+  .tabs__item { padding: 8px 4px; font-size: 13px; }
+  .stage { padding: 6px max(14px, env(safe-area-inset-right)) 16px max(14px, env(safe-area-inset-left)); gap: 14px; }
+  /* 16 px : en dessous, iOS zoome sur le champ au toucher. */
+  .search__input { font-size: 16px; min-width: 0; }
+
+  .grid { min-width: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .grid__head { display: none; }
+  .who { grid-column: 1 / -1; position: static; background: none; min-height: 0; margin-top: 10px; }
+  .who:first-of-type { margin-top: 0; }
+  .cell { min-height: 58px; padding: 4px 5px 6px; font-size: 12px; }
+  .cell[data-label]::before {
+    content: attr(data-label); margin-bottom: 2px;
+    font-size: 9.5px; letter-spacing: .02em; color: var(--text-3); opacity: .9;
+  }
+  .cell--unknown[data-label]::before { opacity: .7; }
+  .guesses { overflow-x: visible; }
+
+  .stats { gap: 2px 14px; padding: 6px 14px max(10px, env(safe-area-inset-bottom)); }
+  .stats b { font-size: 14px; }
+}
+
 /* ---------- Mode capture (partage en image, appli de bureau) ----------
    Fond nuit opaque, sans barre du haut, statistiques, boutons ni panneaux. */
 html.is-capturing { background: #0c0c12; }
