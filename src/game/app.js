@@ -1,61 +1,8 @@
-// Interface du jeu : modes, saisie, tableau des essais, indices et statistiques.
+// Interface du jeu : onglets, rendu d'ensemble, événements et démarrage.
 (function () {
   'use strict';
-  const { manhwas, characters } = window.manhwadle;
-  const L = window.Logic;
-  const I = window.I18n;
-  const t = I.t;
-
-  const SITE_URL = 'https://kureo524.github.io/Manhwadle/';
-  const { HINT_AT, HINT_CLEAR_AT } = L;
-  const byId = new Map(characters.map((c) => [c.id, c]));
-  const manhwaById = new Map(manhwas.map((m) => [m.id, m]));
-  const $ = (id) => document.getElementById(id);
-
-  // ---------- Stockage (try/catch : ne doit jamais bloquer le jeu) ----------
-  const store = {
-    get(key, fallback) {
-      try { const v = localStorage.getItem(`manhwadle.${key}`); return v === null ? fallback : JSON.parse(v); }
-      catch { return fallback; }
-    },
-    set(key, value) { try { localStorage.setItem(`manhwadle.${key}`, JSON.stringify(value)); } catch { /* ignoré */ } },
-  };
-
-  // Le mode démo (dev) ne doit jamais toucher aux parties ni aux stats du joueur.
-  if (window.manhwadle.demo) store.set = () => {};
-
-  const emptyStats = () => ({ played: 0, won: 0, streak: 0, best: 0, totalGuesses: 0, lastDay: null, coins: 0 });
-  let stats = store.get('stats', { daily: emptyStats(), endless: emptyStats() });
-  let mode = store.get('mode', 'daily');
-  let enabled = new Set(store.get('filters', manhwas.map((m) => m.id)).filter((id) => manhwaById.has(id)));
-  if (!enabled.size) enabled = new Set(manhwas.map((m) => m.id));
-
-  // Infini : { target, guesses: [ids], done, won }, tout est calculé ici.
-  // Perso du jour : { day, guesses: [ids], results: Map(id → états), done, won, target, hint }, tout vient du serveur :
-  // le jeu ne connaît pas la réponse avant la fin de la partie.
-  let game = null;
-
-  // Compte en ligne (facultatif, jamais en mode démo) : le perso du jour se joue sur le serveur.
-  const online = window.manhwadle.demo ? null : window.Online;
-  let dailyStatus = 'locked'; // 'locked' (sans compte) | 'loading' | 'offline' (serveur injoignable) | 'ready'
-  let dailyGame = null;       // dernière partie du jour reçue du serveur
-  let dailyMsg = '';          // erreur à afficher sous la recherche
-  let dailyBusy = false;      // essai en cours d'envoi
-  let dailyHint = null;       // { key, url } image d'indice déjà chargée (url null : pas d'image pour ce scénario)
-  // Sans compte, l'appli s'ouvre sur le mode infini, sans toucher au mode enregistré.
-  let openingDaily = mode === 'daily' && !!online?.signedIn;
-  if (!online?.signedIn) mode = 'endless';
-  let view = 'game';      // 'game' | 'ranking' | 'account'
-  let profile = null;     // profil renvoyé par l'API quand le joueur est connecté
-  let board = null;       // classement chargé
-  let boardError = null;
-  const loginNotice = online?.takeNotice();
-  let accountMsg = loginNotice ? t(`login.${loginNotice}`) : '';
-  let loggingIn = false;
-  let loginCodeShown = null; // appli installée : code à comparer avant d'ouvrir la page Discord
-  let confirmDelete = false;
-
-  const poolFor = (m) => (m === 'daily' ? characters : characters.filter((c) => enabled.has(c.manhwa)));
+  const A = window.App;
+  const { manhwas, characters, L, I, t, SITE_URL, HINT_AT, HINT_CLEAR_AT, byId, manhwaById, $, store, online, S, poolFor, dailyStreak, el, initials, button, rows, reward } = A;
 
   // Copie dans le presse-papiers (API moderne, sinon sélection + copie).
   async function copyText(text) {
@@ -68,50 +15,48 @@
     return ok;
   }
 
-  const dailyStreak = () => L.liveStreak(stats.daily, L.utcDayKey());
-
   // ---------- Parties ----------
   function loadGame() {
-    if (mode === 'daily') {
-      game = dailyGame?.day === L.utcDayKey() ? dailyGame : { guesses: [], results: new Map(), done: false, won: false, target: null, hint: 0 };
-      if (!online?.signedIn) { dailyStatus = 'locked'; return; }
-      if (game !== dailyGame) dailyStatus = 'loading';
+    if (S.mode === 'daily') {
+      S.game = S.dailyGame?.day === L.utcDayKey() ? S.dailyGame : { guesses: [], results: new Map(), done: false, won: false, target: null, hint: 0 };
+      if (!online?.signedIn) { S.dailyStatus = 'locked'; return; }
+      if (S.game !== S.dailyGame) S.dailyStatus = 'loading';
       loadDaily();
     } else {
       const saved = store.get('endless.current', null);
       const target = saved && byId.get(saved.target);
-      if (target && enabled.has(target.manhwa)) {
-        game = { target, guesses: saved.guesses.filter((id) => byId.has(id)), done: saved.done, won: saved.won };
+      if (target && S.enabled.has(target.manhwa)) {
+        S.game = { target, guesses: saved.guesses.filter((id) => byId.has(id)), done: saved.done, won: saved.won };
       } else newEndlessGame();
     }
   }
 
   function newEndlessGame() {
     const pool = poolFor('endless');
-    const previous = game?.target?.id;
+    const previous = S.game?.target?.id;
     let target = pool[Math.floor(Math.random() * pool.length)];
     if (pool.length > 1) while (target.id === previous) target = pool[Math.floor(Math.random() * pool.length)];
-    game = { target, guesses: [], done: false, won: false };
+    S.game = { target, guesses: [], done: false, won: false };
     saveGame();
   }
 
   function saveGame() {
-    store.set('endless.current', { guesses: game.guesses, done: game.done, won: game.won, target: game.target.id });
+    store.set('endless.current', { guesses: S.game.guesses, done: S.game.done, won: S.game.won, target: S.game.target.id });
   }
 
   function finish(won) {
-    game.done = true;
-    game.won = won;
-    const s = stats.endless;
+    S.game.done = true;
+    S.game.won = won;
+    const s = S.stats.endless;
     s.played++;
     if (won) {
       s.won++;
-      s.coins = (s.coins ?? 0) + reward(game.guesses.length);
-      s.totalGuesses += game.guesses.length;
+      s.coins = (s.coins ?? 0) + reward(S.game.guesses.length);
+      s.totalGuesses += S.game.guesses.length;
       s.streak += 1;
       s.best = Math.max(s.best, s.streak);
     } else s.streak = 0;
-    store.set('stats', stats);
+    store.set('stats', S.stats);
     saveGame();
   }
 
@@ -119,16 +64,16 @@
   // Le serveur fait foi pour la série du jour : ses statistiques remplacent celles de l'appareil
   // (les pièces restent locales).
   function applyProfile(p) {
-    profile = p;
-    stats.daily = {
-      ...stats.daily, played: p.played, won: p.won, streak: p.streak, best: p.best, totalGuesses: p.guesses, lastDay: p.lastDay,
+    S.profile = p;
+    S.stats.daily = {
+      ...S.stats.daily, played: p.played, won: p.won, streak: p.streak, best: p.best, totalGuesses: p.guesses, lastDay: p.lastDay,
     };
-    store.set('stats', stats);
+    store.set('stats', S.stats);
   }
 
   // Partie du jour renvoyée par le serveur.
   function applyDaily(s) {
-    dailyGame = {
+    S.dailyGame = {
       day: s.day,
       guesses: s.guesses.filter((g) => byId.has(g.id)).map((g) => g.id),
       results: new Map(s.guesses.map((g) => [g.id, g.results])),
@@ -138,71 +83,71 @@
       hint: s.hint,
     };
     applyProfile(s.profile);
-    dailyStatus = 'ready';
-    if (mode === 'daily') game = dailyGame;
+    S.dailyStatus = 'ready';
+    if (S.mode === 'daily') S.game = S.dailyGame;
   }
 
   async function loadDaily() {
-    const opening = openingDaily;
-    openingDaily = false;
+    const opening = S.openingDaily;
+    S.openingDaily = false;
     try {
       applyDaily(await online.daily());
-      dailyMsg = '';
+      S.dailyMsg = '';
     } catch (e) {
-      if (e.status === 401) { profile = null; dailyStatus = 'locked'; accountMsg = t('msg.sessionExpired'); }
+      if (e.status === 401) { S.profile = null; S.dailyStatus = 'locked'; S.accountMsg = t('msg.sessionExpired'); }
       else {
-        dailyStatus = 'offline';
+        S.dailyStatus = 'offline';
         // Au lancement, sans réseau : on ouvre le mode infini plutôt qu'un scénario impossible à jouer.
-        if (opening && mode === 'daily') { mode = 'endless'; loadGame(); }
+        if (opening && S.mode === 'daily') { S.mode = 'endless'; loadGame(); }
       }
     }
     render();
   }
 
   async function submitDailyGuess(id) {
-    if (dailyBusy) return;
-    dailyBusy = true;
+    if (S.dailyBusy) return;
+    S.dailyBusy = true;
     closeSuggestions();
     $('search').value = '';
     try {
-      applyDaily(await online.dailyGuess(id, dailyGame.day));
-      dailyMsg = '';
-      if (dailyGame.done && dailyGame.won) {
-        stats.daily.coins = (stats.daily.coins ?? 0) + reward(dailyGame.guesses.length);
-        store.set('stats', stats);
+      applyDaily(await online.dailyGuess(id, S.dailyGame.day));
+      S.dailyMsg = '';
+      if (S.dailyGame.done && S.dailyGame.won) {
+        S.stats.daily.coins = (S.stats.daily.coins ?? 0) + reward(S.dailyGame.guesses.length);
+        store.set('stats', S.stats);
       }
-      dailyBusy = false;
+      S.dailyBusy = false;
       render({ animateFirst: true });
       return;
     } catch (e) {
       if (e.code === 'day-changed' || e.status === 409) await loadDaily();
       else if (e.status === 401) await loadDaily();
-      else dailyMsg = t(e.code === 'update' ? 'daily.update' : 'daily.sendFailed');
+      else S.dailyMsg = t(e.code === 'update' ? 'daily.update' : 'daily.sendFailed');
     }
-    dailyBusy = false;
+    S.dailyBusy = false;
     render();
   }
 
   async function syncAccount() {
-    if (!online?.signedIn) { profile = null; render(); return; }
+    if (!online?.signedIn) { S.profile = null; render(); return; }
     try {
       applyProfile(await online.me());
-      if (mode === 'daily' && dailyStatus !== 'loading') { await loadDaily(); return; }
+      if (S.mode === 'daily' && S.dailyStatus !== 'loading') { await loadDaily(); return; }
     } catch (e) {
-      if (e.status === 401) { profile = null; accountMsg = t('msg.sessionExpired'); }
-      else if (!profile) accountMsg = t('msg.offline');
+      if (e.status === 401) { S.profile = null; S.accountMsg = t('msg.sessionExpired'); }
+      else if (!S.profile) S.accountMsg = t('msg.offline');
     }
     render();
-    if (view === 'ranking') loadBoard();
+    if (S.view === 'ranking') loadBoard();
   }
 
   async function loadBoard() {
     if (!online) return;
     try {
-      board = (await online.leaderboard()).players;
-      boardError = null;
+      S.board = (await online.leaderboard()).players;
+      S.boardError = null;
     } catch {
-      boardError = true;
+      S.boardError = true;
     }
     renderView();
   }
@@ -210,19 +155,19 @@
   async function login() {
     // Déjà en cours : on ramène la fenêtre Discord au premier plan (appli).
     // Appli installée sur téléphone : on ouvre la page Discord.
-    if (loggingIn) { if (window.manhwadle.login) window.manhwadle.login(); else online.openLoginPage(); return; }
-    loggingIn = true;
-    accountMsg = t(typeof window.manhwadle.login === 'function' ? 'msg.loginWindow' : 'msg.loginRedirect');
-    view = 'account';
+    if (S.loggingIn) { if (window.manhwadle.login) window.manhwadle.login(); else online.openLoginPage(); return; }
+    S.loggingIn = true;
+    S.accountMsg = t(typeof window.manhwadle.login === 'function' ? 'msg.loginWindow' : 'msg.loginRedirect');
+    S.view = 'account';
     render();
     const error = await online.login((code) => {
-      loginCodeShown = code;
-      accountMsg = '';
+      S.loginCodeShown = code;
+      S.accountMsg = '';
       renderView();
     });
-    loggingIn = false;
-    loginCodeShown = null;
-    accountMsg = error ? t(`login.${error}`) : '';
+    S.loggingIn = false;
+    S.loginCodeShown = null;
+    S.accountMsg = error ? t(`login.${error}`) : '';
     if (error) { renderAccount(); renderView(); return; }
     setView('account');
     await syncAccount();
@@ -230,38 +175,38 @@
 
   // Plus de compte sur cet appareil : la partie du jour ne doit plus s'afficher.
   function forgetDaily() {
-    dailyGame = null;
-    if (dailyHint?.url) URL.revokeObjectURL(dailyHint.url);
-    dailyHint = null;
-    if (mode === 'daily') loadGame();
+    S.dailyGame = null;
+    if (S.dailyHint?.url) URL.revokeObjectURL(S.dailyHint.url);
+    S.dailyHint = null;
+    if (S.mode === 'daily') loadGame();
   }
 
   async function logout() {
     await online.logout().catch(() => {});
-    profile = null;
+    S.profile = null;
     forgetDaily();
-    accountMsg = t('msg.loggedOut');
+    S.accountMsg = t('msg.loggedOut');
     render();
   }
 
   async function logoutAll() {
     try {
       await online.logoutAll();
-      profile = null;
+      S.profile = null;
       forgetDaily();
-      accountMsg = t('msg.loggedOutAll');
+      S.accountMsg = t('msg.loggedOutAll');
     } catch {
-      accountMsg = t('msg.actionFailed');
+      S.accountMsg = t('msg.actionFailed');
     }
     render();
   }
 
   async function toggleBoard() {
     try {
-      applyProfile(await online.setShowOnBoard(profile.showOnBoard === false));
-      accountMsg = t(profile.showOnBoard ? 'msg.boardOn' : 'msg.boardOff');
+      applyProfile(await online.setShowOnBoard(S.profile.showOnBoard === false));
+      S.accountMsg = t(S.profile.showOnBoard ? 'msg.boardOn' : 'msg.boardOff');
     } catch {
-      accountMsg = t('msg.actionFailed');
+      S.accountMsg = t('msg.actionFailed');
     }
     render();
   }
@@ -274,39 +219,39 @@
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch {
-      accountMsg = t('msg.actionFailed');
+      S.accountMsg = t('msg.actionFailed');
       render();
     }
   }
 
   async function deleteAccount() {
-    if (!confirmDelete) { confirmDelete = true; renderView(); return; }
-    confirmDelete = false;
+    if (!S.confirmDelete) { S.confirmDelete = true; renderView(); return; }
+    S.confirmDelete = false;
     try {
       await online.deleteAccount();
-      profile = null;
+      S.profile = null;
       forgetDaily();
-      accountMsg = t('msg.deleted');
+      S.accountMsg = t('msg.deleted');
     } catch {
-      accountMsg = t('msg.deleteFailed');
+      S.accountMsg = t('msg.deleteFailed');
     }
     render();
     loadBoard();
   }
 
   function setView(v) {
-    view = v;
-    confirmDelete = false;
+    S.view = v;
+    S.confirmDelete = false;
     if (v === 'ranking') loadBoard();
     render();
     if (v === 'game') $('search').focus();
   }
 
   function submitGuess(id) {
-    if (game.done || game.guesses.includes(id)) return;
-    if (mode === 'daily') { submitDailyGuess(id); return; }
-    game.guesses.push(id);
-    const won = id === game.target.id;
+    if (S.game.done || S.game.guesses.includes(id)) return;
+    if (S.mode === 'daily') { submitDailyGuess(id); return; }
+    S.game.guesses.push(id);
+    const won = id === S.game.target.id;
     if (won) finish(true); else saveGame();
     closeSuggestions();
     $('search').value = '';
@@ -314,14 +259,6 @@
   }
 
   // ---------- Rendu ----------
-  const el = (tag, cls, text) => {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text !== undefined) e.textContent = text;
-    return e;
-  };
-
-  const initials = (name) => name.split(/[\s,'-]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
   function portrait(c, size = '') {
     const p = el('div', `portrait ${size ? `portrait--${size}` : ''}`);
@@ -341,8 +278,8 @@
   // Comparaison d'un essai : calculée ici en infini, reçue du serveur pour le perso du jour.
   function resultsFor(id) {
     const c = byId.get(id);
-    if (!game.results) return L.compare(c, game.target);
-    const states = game.results.get(id);
+    if (!S.game.results) return L.compare(c, S.game.target);
+    const states = S.game.results.get(id);
     return L.COLUMNS.map((col) => ({ ...col, value: c[col.key], ...states.find((r) => r.key === col.key) }));
   }
 
@@ -365,14 +302,14 @@
     grid.append(el('div', 'grid__head', t('col.character')));
     for (const col of L.COLUMNS) grid.append(el('div', 'grid__head', t(`col.${col.key}`)));
 
-    if (!game.guesses.length) {
+    if (!S.game.guesses.length) {
       const empty = el('div', 'grid__empty');
       empty.append(el('span', '', t('grid.empty')));
       grid.append(empty);
       return;
     }
 
-    [...game.guesses].reverse().forEach((id, row) => {
+    [...S.game.guesses].reverse().forEach((id, row) => {
       const c = byId.get(id);
       const who = el('div', 'who');
       who.append(portrait(c));
@@ -390,8 +327,6 @@
   }
 
   // ---------- Ambiance ORV : scénario, récompense, constellations ----------
-  const REWARD_MAX = 1000;
-  const reward = (n) => Math.max(100, REWARD_MAX - 100 * Math.max(0, n - 1));
   const DIFFICULTY = ['F', 'D', 'C', 'B', 'A', 'S'];
 
   // Constellations inventées pour le jeu (modificateurs à la façon d'ORV) : voir i18n.js.
@@ -401,9 +336,9 @@
     const r = resultsFor(guessId);
     const ok = r.filter((x) => x.state === 'ok').length;
     const sameStory = r[0].state === 'ok';
-    const who = pickOf(t('constellations'), `${game.day ?? game.target.id}:${index}`);
+    const who = pickOf(t('constellations'), `${S.game.day ?? S.game.target.id}:${index}`);
     const seed = `${guessId}:${index}`;
-    if (guessId === game.target?.id) return [t('react.win'), null];
+    if (guessId === S.game.target?.id) return [t('react.win'), null];
     if (ok >= 7) return [pickOf(t('react.close'), seed), who];
     if (sameStory && ok >= 4) return [pickOf(t('react.story'), seed), who];
     if (ok >= 4) return [pickOf(t('react.warm'), seed), who];
@@ -414,18 +349,18 @@
   function renderFeed(animate) {
     const box = $('feed');
     box.replaceChildren();
-    const lines = game.guesses.map((id, i) => reaction(id, i));
+    const lines = S.game.guesses.map((id, i) => reaction(id, i));
     const live = dailyStreak();
-    if (mode === 'daily' && dailyStatus === 'ready' && !game.done && !game.guesses.length && live) {
+    if (S.mode === 'daily' && S.dailyStatus === 'ready' && !S.game.done && !S.game.guesses.length && live) {
       lines.push([t('feed.streakAtStake', { n: live }), null]);
     }
-    if (mode === 'daily' && dailyMsg) lines.push([dailyMsg, null]);
-    if (game.done && !game.won) lines.push([t('feed.lost'), null]);
-    if (game.done && game.won) lines.push([t('feed.coins', { n: I.integer(reward(game.guesses.length)) }), null]);
-    if (game.done && mode === 'daily') {
-      const s = stats.daily;
-      if (game.won && s.streak > 1 && s.streak === s.best) lines.push([t('feed.record', { n: s.streak }), null]);
-      else if (game.won) lines.push([t('feed.streak', { n: s.streak }), null]);
+    if (S.mode === 'daily' && S.dailyMsg) lines.push([S.dailyMsg, null]);
+    if (S.game.done && !S.game.won) lines.push([t('feed.lost'), null]);
+    if (S.game.done && S.game.won) lines.push([t('feed.coins', { n: I.integer(reward(S.game.guesses.length)) }), null]);
+    if (S.game.done && S.mode === 'daily') {
+      const s = S.stats.daily;
+      if (S.game.won && s.streak > 1 && s.streak === s.best) lines.push([t('feed.record', { n: s.streak }), null]);
+      else if (S.game.won) lines.push([t('feed.streak', { n: s.streak }), null]);
       else lines.push([t('feed.broken'), null]);
     }
     lines.slice(-3).reverse().forEach(([text, who], i) => {
@@ -438,22 +373,10 @@
     });
   }
 
-  function rows(list) {
-    const dl = el('dl', 'scenario__rows');
-    for (const [k, v, num] of list) {
-      dl.append(el('dt', '', k));
-      const dd = el('dd');
-      if (num !== undefined) dd.append(el('span', 'num', num), ` ${v}`);
-      else dd.textContent = v;
-      dl.append(dd);
-    }
-    return dl;
-  }
-
   // Ligne « Série » de la fenêtre de scénario (mode jour).
   function streakRow() {
     const live = dailyStreak();
-    const best = stats.daily.best;
+    const best = S.stats.daily.best;
     if (!live) return [t('sc.streak'), best ? t('sc.noStreakBest', { best }) : t('sc.noStreak')];
     return [t('sc.streak'), t('sc.streakRun', { n: live, best }), live];
   }
@@ -466,16 +389,16 @@
       b.addEventListener('click', fn);
       return b;
     };
-    const toEndless = () => { mode = 'endless'; store.set('mode', mode); loadGame(); render(); };
-    if (dailyStatus === 'loading') {
+    const toEndless = () => { S.mode = 'endless'; store.set('mode', S.mode); loadGame(); render(); };
+    if (S.dailyStatus === 'loading') {
       main.append(el('h2', 'scenario__title', t('daily.loading')));
     } else {
-      const locked = dailyStatus === 'locked';
+      const locked = S.dailyStatus === 'locked';
       main.append(el('h2', 'scenario__title', t(locked ? 'daily.lockedTitle' : 'daily.offlineTitle')));
       main.append(el('p', 'panel__text', t(locked ? 'daily.lockedText' : 'daily.offlineText')));
       const actions = el('div', 'scenario__actions');
       actions.append(
-        locked ? action(loggingIn ? t('acc.connecting') : t('acc.loginDiscord'), login) : action(t('daily.retry'), () => { dailyStatus = 'loading'; render(); loadDaily(); }),
+        locked ? action(S.loggingIn ? t('acc.connecting') : t('acc.loginDiscord'), login) : action(t('daily.retry'), () => { S.dailyStatus = 'loading'; render(); loadDaily(); }),
         action(t('daily.playEndless'), toEndless),
       );
       main.append(actions);
@@ -485,18 +408,18 @@
 
   // Indice du perso du jour : image fournie par le serveur, chargée une fois par niveau.
   function dailyHintImage(side) {
-    const key = `${game.day}:${game.hint}`;
-    if (dailyHint?.key !== key) {
-      if (dailyHint?.url) URL.revokeObjectURL(dailyHint.url);
-      dailyHint = { key, url: undefined };
+    const key = `${S.game.day}:${S.game.hint}`;
+    if (S.dailyHint?.key !== key) {
+      if (S.dailyHint?.url) URL.revokeObjectURL(S.dailyHint.url);
+      S.dailyHint = { key, url: undefined };
       online.dailyHint().then((url) => {
-        if (dailyHint?.key === key) { dailyHint.url = url; renderScenario(); } else if (url) URL.revokeObjectURL(url);
-      }).catch(() => { if (dailyHint?.key === key) dailyHint = null; });
+        if (S.dailyHint?.key === key) { S.dailyHint.url = url; renderScenario(); } else if (url) URL.revokeObjectURL(url);
+      }).catch(() => { if (S.dailyHint?.key === key) S.dailyHint = null; });
     }
-    if (dailyHint?.url) {
+    if (S.dailyHint?.url) {
       const p = el('div', 'portrait portrait--lg hint__img');
       const img = el('img');
-      img.src = dailyHint.url; img.alt = ''; img.draggable = false;
+      img.src = S.dailyHint.url; img.alt = ''; img.draggable = false;
       p.style.setProperty('--blur', '3px');
       p.append(img);
       side.append(p);
@@ -506,15 +429,15 @@
   function renderScenario() {
     const box = $('scenario');
     box.replaceChildren();
-    if (mode === 'daily' && dailyStatus !== 'ready') { renderDailyGate(box); return; }
-    const n = game.guesses.length;
-    const pool = poolFor(mode);
+    if (S.mode === 'daily' && S.dailyStatus !== 'ready') { renderDailyGate(box); return; }
+    const n = S.game.guesses.length;
+    const pool = poolFor(S.mode);
     const main = el('div');
     const side = el('div', 'scenario__side');
 
-    if (game.done) {
-      const target = game.target ?? { name: '???', manhwa: null };
-      main.append(el('h2', 'scenario__title', game.won ? t('sc.won') : t('sc.lost')));
+    if (S.game.done) {
+      const target = S.game.target ?? { name: '???', manhwa: null };
+      main.append(el('h2', 'scenario__title', S.game.won ? t('sc.won') : t('sc.lost')));
       const res = el('div', 'result');
       const txt = el('div');
       txt.append(el('div', 'result__name', target.name), el('div', 'result__manhwa', manhwaById.get(target.manhwa)?.title ?? ''));
@@ -522,8 +445,8 @@
       main.append(res);
       main.append(rows([
         [t('sc.guesses'), '', n],
-        [t('sc.reward'), game.won ? t('sc.coins') : t('sc.noReward'), game.won ? I.integer(reward(n)) : undefined],
-        ...(mode === 'daily' ? [streakRow(), [t('sc.next'), t('sc.in', { time: untilMidnight() })]] : []),
+        [t('sc.reward'), S.game.won ? t('sc.coins') : t('sc.noReward'), S.game.won ? I.integer(reward(n)) : undefined],
+        ...(S.mode === 'daily' ? [streakRow(), [t('sc.next'), t('sc.in', { time: untilMidnight() })]] : []),
       ]));
       const actions = el('div', 'scenario__actions');
       const share = el('button', 'link link--strong', t('sc.share'));
@@ -536,14 +459,14 @@
           return;
         }
         const text = L.shareText({
-          daily: mode === 'daily', day: game.day, won: game.won, streak: dailyStreak(), url: SITE_URL, lang: I.lang,
-          rows: game.guesses.map((id) => resultsFor(id).map((r) => r.state)),
+          daily: S.mode === 'daily', day: S.game.day, won: S.game.won, streak: dailyStreak(), url: SITE_URL, lang: I.lang,
+          rows: S.game.guesses.map((id) => resultsFor(id).map((r) => r.state)),
         });
         share.textContent = (await copyText(text)) ? t('sc.textCopied') : t('sc.copyFailed');
         setTimeout(() => { share.textContent = t('sc.share'); }, 1800);
       });
       actions.append(share);
-      if (mode === 'endless') {
+      if (S.mode === 'endless') {
         const again = el('button', 'link link--strong', t('sc.nextScenario'));
         again.addEventListener('click', () => { newEndlessGame(); render(); $('search').focus(); });
         actions.append(again);
@@ -551,26 +474,26 @@
       main.append(actions);
       side.append(portrait(target, 'lg'));
     } else {
-      const level = mode === 'daily' ? 'A' : DIFFICULTY[Math.min(enabled.size, DIFFICULTY.length - 1)];
-      main.append(el('h2', 'scenario__title', mode === 'daily' ? t('sc.titleDaily') : t('sc.titleEndless')));
+      const level = S.mode === 'daily' ? 'A' : DIFFICULTY[Math.min(S.enabled.size, DIFFICULTY.length - 1)];
+      main.append(el('h2', 'scenario__title', S.mode === 'daily' ? t('sc.titleDaily') : t('sc.titleEndless')));
       main.append(rows([
-        [t('sc.category'), mode === 'daily' ? t('sc.main') : t('sc.side')],
+        [t('sc.category'), S.mode === 'daily' ? t('sc.main') : t('sc.side')],
         [t('sc.difficulty'), level],
         [t('sc.goal'), t('sc.goalText', { n: pool.length })],
-        [t('sc.timeLimit'), mode === 'daily' ? t('sc.untilMidnight', { time: untilMidnight() }) : t('sc.none')],
+        [t('sc.timeLimit'), S.mode === 'daily' ? t('sc.untilMidnight', { time: untilMidnight() }) : t('sc.none')],
         [t('sc.reward'), t('sc.coins'), I.integer(reward(n + 1))],
-        ...(mode === 'daily' ? [streakRow()] : []),
-        [t('sc.failure'), mode === 'daily' ? '???' : t('sc.giveUp')],
+        ...(S.mode === 'daily' ? [streakRow()] : []),
+        [t('sc.failure'), S.mode === 'daily' ? '???' : t('sc.giveUp')],
       ]));
       if (n >= HINT_AT) {
-        if (mode === 'daily') dailyHintImage(side);
+        if (S.mode === 'daily') dailyHintImage(side);
         else {
-          const p = portrait(game.target, 'lg');
+          const p = portrait(S.game.target, 'lg');
           p.classList.add('hint__img');
           p.style.setProperty('--blur', n >= HINT_CLEAR_AT ? '6px' : '14px');
           side.append(p);
         }
-        const noImage = mode === 'daily' && dailyHint?.url === null;
+        const noImage = S.mode === 'daily' && S.dailyHint?.url === null;
         side.append(el('div', 'scenario__note system', noImage ? t('hint.none') : n >= HINT_CLEAR_AT ? t('hint.clear') : t('hint.blurry', { at: HINT_CLEAR_AT })));
       } else {
         const left = HINT_AT - n;
@@ -589,11 +512,11 @@
   }
 
   function renderStats() {
-    const s = stats[mode];
+    const s = S.stats[S.mode];
     const items = [
       [t('stats.played'), s.played],
       [t('stats.won'), s.played ? I.percent(Math.round((s.won / s.played) * 100)) : '–'],
-      [t('stats.streak'), mode === 'daily' ? dailyStreak() : s.streak],
+      [t('stats.streak'), S.mode === 'daily' ? dailyStreak() : s.streak],
       [t('stats.best'), s.best],
       [t('stats.avg'), s.won ? I.decimal(s.totalGuesses / s.won) : '–'],
       [t('stats.coins'), I.integer(s.coins ?? 0)],
@@ -617,17 +540,17 @@
 
   function renderFilters() {
     const box = $('filters');
-    box.hidden = mode !== 'endless';
+    box.hidden = S.mode !== 'endless';
     box.replaceChildren();
     for (const m of manhwas) {
       const count = characters.filter((c) => c.manhwa === m.id).length;
-      const chip = el('button', `filter ${enabled.has(m.id) ? 'is-on' : ''}`, `${m.short.replace(/\.$/, '')} · ${count}`);
-      chip.title = `${m.title} — ${enabled.has(m.id) ? t('filter.remove') : t('filter.add')}`;
+      const chip = el('button', `filter ${S.enabled.has(m.id) ? 'is-on' : ''}`, `${m.short.replace(/\.$/, '')} · ${count}`);
+      chip.title = `${m.title} — ${S.enabled.has(m.id) ? t('filter.remove') : t('filter.add')}`;
       chip.addEventListener('click', () => {
-        if (enabled.has(m.id)) { if (enabled.size === 1) return; enabled.delete(m.id); } else enabled.add(m.id);
-        store.set('filters', [...enabled]);
+        if (S.enabled.has(m.id)) { if (S.enabled.size === 1) return; S.enabled.delete(m.id); } else S.enabled.add(m.id);
+        store.set('filters', [...S.enabled]);
         // Changer les manhwa en jeu relance une partie si la cible n'est plus dans la sélection.
-        if (!enabled.has(game.target.manhwa) || !game.guesses.length || game.done) newEndlessGame();
+        if (!S.enabled.has(S.game.target.manhwa) || !S.game.guesses.length || S.game.done) newEndlessGame();
         render();
       });
       box.append(chip);
@@ -650,16 +573,16 @@
     const box = $('account');
     box.replaceChildren();
     if (!online) return;
-    if (profile) {
+    if (S.profile) {
       const me = el('button', 'account__me');
       me.title = t('acc.me');
-      me.append(avatar(profile, 'sm'), el('span', 'account__name', profile.name));
+      me.append(avatar(S.profile, 'sm'), el('span', 'account__name', S.profile.name));
       me.addEventListener('click', () => setView('account'));
       box.append(me);
     } else if (online.signedIn) {
       box.append(el('span', 'account__wait', t('acc.connecting')));
     } else {
-      const b = el('button', 'link', loggingIn ? t('acc.connecting') : t('acc.login'));
+      const b = el('button', 'link', S.loggingIn ? t('acc.connecting') : t('acc.login'));
       b.title = t('acc.loginTitle');
       b.addEventListener('click', login);
       box.append(b);
@@ -674,14 +597,14 @@
 
   function renderBoard() {
     const wrap = el('div', 'board');
-    if (boardError) { wrap.append(el('p', 'board__empty system', t('rank.error'))); return wrap; }
-    if (!board) { wrap.append(el('p', 'board__empty system', t('rank.loading'))); return wrap; }
-    if (!board.length) {
+    if (S.boardError) { wrap.append(el('p', 'board__empty system', t('rank.error'))); return wrap; }
+    if (!S.board) { wrap.append(el('p', 'board__empty system', t('rank.loading'))); return wrap; }
+    if (!S.board.length) {
       wrap.append(el('p', 'board__empty system', t('rank.empty')));
       return wrap;
     }
     wrap.append(boardRow(t('rank.head').map((h) => el('span', 'board__head', h)), 'board__row--head'));
-    board.forEach((p, i) => {
+    S.board.forEach((p, i) => {
       const who = el('span', 'board__who');
       who.append(avatar(p, 'sm'), el('span', 'board__name', p.name));
       const num = (v) => el('span', 'board__num', v);
@@ -692,7 +615,7 @@
         num(p.streak),
         num(`${p.won}/${p.played}`),
         num(p.won ? I.decimal(p.guesses / p.won) : '–'),
-      ], profile?.id === p.id ? 'is-me' : ''));
+      ], S.profile?.id === p.id ? 'is-me' : ''));
     });
     return wrap;
   }
@@ -709,44 +632,38 @@
     return box;
   }
 
-  function button(cls, text, onClick) {
-    const b = el('button', cls, text);
-    b.addEventListener('click', onClick);
-    return b;
-  }
-
   // Onglet « Compte » : connexion Discord, ou fiche du joueur connecté.
   function accountView() {
-    const msg = accountMsg ? [el('p', 'panel__msg system', `[${accountMsg}]`)] : [];
+    const msg = S.accountMsg ? [el('p', 'panel__msg system', `[${S.accountMsg}]`)] : [];
     const note = el('p', 'panel__note', t('acc.note'));
     const privacy = el('a', '', t('acc.privacy'));
     privacy.href = `${SITE_URL}privacy.html`; privacy.target = '_blank'; privacy.rel = 'noopener';
     note.append(' ', privacy);
-    if (profile) {
+    if (S.profile) {
       const who = el('div', 'panel__who');
       const txt = el('div');
-      txt.append(el('div', 'panel__name', profile.name), el('div', 'panel__sub', t('acc.sub')));
-      who.append(avatar(profile, 'md'), txt);
+      txt.append(el('div', 'panel__name', S.profile.name), el('div', 'panel__sub', t('acc.sub')));
+      who.append(avatar(S.profile, 'md'), txt);
       return panel(t('acc.titleIn'), who, rows([
-        [t('acc.streak'), t('acc.days', { n: profile.streak }), profile.streak],
-        [t('acc.best'), t('acc.days', { n: profile.best }), profile.best],
-        [t('acc.won'), t('acc.outOf', { n: profile.played }), profile.won],
-        [t('acc.avg'), profile.won ? I.decimal(profile.guesses / profile.won) : '–'],
-        [t('acc.last'), profile.lastDay ? t('acc.lastValue', { n: L.dayNumber(profile.lastDay), date: I.date(profile.lastDay) }) : t('acc.never')],
+        [t('acc.streak'), t('acc.days', { n: S.profile.streak }), S.profile.streak],
+        [t('acc.best'), t('acc.days', { n: S.profile.best }), S.profile.best],
+        [t('acc.won'), t('acc.outOf', { n: S.profile.played }), S.profile.won],
+        [t('acc.avg'), S.profile.won ? I.decimal(S.profile.guesses / S.profile.won) : '–'],
+        [t('acc.last'), S.profile.lastDay ? t('acc.lastValue', { n: L.dayNumber(S.profile.lastDay), date: I.date(S.profile.lastDay) }) : t('acc.never')],
       ]), actionsOf(
-        button('link', t(profile.showOnBoard === false ? 'acc.boardOff' : 'acc.boardOn'), toggleBoard),
+        button('link', t(S.profile.showOnBoard === false ? 'acc.boardOff' : 'acc.boardOn'), toggleBoard),
         button('link', t('acc.export'), exportData),
         button('link link--strong', t('acc.logout'), logout),
         button('link', t('acc.logoutAll'), logoutAll),
-        button('link link--danger', confirmDelete ? t('acc.deleteConfirm') : t('acc.delete'), deleteAccount),
+        button('link link--danger', S.confirmDelete ? t('acc.deleteConfirm') : t('acc.delete'), deleteAccount),
       ), ...msg, note);
     }
     if (online.signedIn) return panel(t('acc.titleOut'), el('p', 'panel__text', t('acc.connectingServer')), ...msg);
     // Appli installée : le code d'abord, car la page Discord s'ouvre par-dessus l'appli.
-    if (loginCodeShown) {
+    if (S.loginCodeShown) {
       return panel(t('acc.titleOut'),
         el('p', 'panel__text', t('acc.codeIntro')),
-        el('p', 'login-code system', loginCodeShown),
+        el('p', 'login-code system', S.loginCodeShown),
         actionsOf(
           button('link link--strong', t('acc.openDiscord'), () => online.openLoginPage()),
           button('link', t('acc.cancel'), () => online.cancelLoginPage()),
@@ -757,9 +674,9 @@
     return panel(t('acc.titleOut'),
       el('p', 'panel__text', t('acc.intro')),
       actionsOf(
-        button('link link--strong', loggingIn ? t('acc.connecting') : t('acc.loginDiscord'), login),
+        button('link link--strong', S.loggingIn ? t('acc.connecting') : t('acc.loginDiscord'), login),
         // Appli : la fenêtre Discord peut se retrouver derrière le jeu ; on peut l'annuler d'ici.
-        ...(loggingIn && typeof window.manhwadle.cancelLogin === 'function'
+        ...(S.loggingIn && typeof window.manhwadle.cancelLogin === 'function'
           ? [button('link', t('acc.cancel'), () => window.manhwadle.cancelLogin())] : []),
       ),
       ...msg, note);
@@ -770,7 +687,7 @@
       el('p', 'panel__text', t('rank.intro')),
       renderBoard(),
     ];
-    if (!profile && !online.signedIn) {
+    if (!S.profile && !online.signedIn) {
       parts.push(actionsOf(button('link', t('rank.join'), () => setView('account'))));
     }
     return panel(t('rank.title'), ...parts);
@@ -778,22 +695,22 @@
 
   function renderView() {
     const box = $('view');
-    box.hidden = view === 'game';
+    box.hidden = S.view === 'game';
     if (box.hidden) return;
-    box.replaceChildren(view === 'ranking' ? rankingView() : accountView());
+    box.replaceChildren(S.view === 'ranking' ? rankingView() : accountView());
   }
 
   function renderMode() {
     const nav = $('mode');
     const items = [...nav.querySelectorAll('.tabs__item')];
     nav.querySelectorAll('[data-view]').forEach((b) => { b.hidden = !online; });
-    items.forEach((b) => b.classList.toggle('is-active', view === 'game' ? b.dataset.mode === mode : b.dataset.view === view));
+    items.forEach((b) => b.classList.toggle('is-active', S.view === 'game' ? b.dataset.mode === S.mode : b.dataset.view === S.view));
     const active = items.find((b) => b.classList.contains('is-active'));
-    document.querySelector('.app').classList.toggle('is-view', view !== 'game');
+    document.querySelector('.app').classList.toggle('is-view', S.view !== 'game');
     const line = nav.querySelector('.tabs__line');
     line.style.left = `${active.offsetLeft + 10}px`;
     line.style.width = `${active.offsetWidth - 20}px`;
-    const pool = poolFor(mode);
+    const pool = poolFor(S.mode);
     const tracked = new Set(pool.map((c) => c.manhwa)).size;
     $('pool-info').textContent = t('pool', { n: pool.length, stories: tracked });
   }
@@ -808,7 +725,7 @@
   function setLang(next) {
     if (next === I.lang) return;
     I.setLang(next);
-    accountMsg = '';
+    S.accountMsg = '';
     renderStatic();
     render();
   }
@@ -823,10 +740,10 @@
     renderGrid(animateFirst);
     renderStats();
     const input = $('search');
-    const gated = mode === 'daily' && dailyStatus !== 'ready';
-    input.disabled = game.done || gated;
-    input.placeholder = gated ? t('search.dailyGated') : game.done ? (mode === 'daily' ? t('search.doneDaily') : t('search.doneEndless')) : t('search.placeholder');
-    $('give-up').hidden = mode !== 'endless' || game.done;
+    const gated = S.mode === 'daily' && S.dailyStatus !== 'ready';
+    input.disabled = S.game.done || gated;
+    input.placeholder = gated ? t('search.dailyGated') : S.game.done ? (S.mode === 'daily' ? t('search.doneDaily') : t('search.doneEndless')) : t('search.placeholder');
+    $('give-up').hidden = S.mode !== 'endless' || S.game.done;
   }
 
   // ---------- Suggestions ----------
@@ -848,9 +765,9 @@
   function openSuggestions() {
     const input = $('search');
     const box = $('suggestions');
-    if (!input.value.trim() || game.done) return closeSuggestions();
-    const pool = poolFor(mode);
-    const guessed = new Set(game.guesses);
+    if (!input.value.trim() || S.game.done) return closeSuggestions();
+    const pool = poolFor(S.mode);
+    const guessed = new Set(S.game.guesses);
     const inPool = manhwas.filter((m) => pool.some((c) => c.manhwa === m.id));
     const q = L.parseQuery(input.value, inPool);
     let header = null;
@@ -898,8 +815,8 @@
     const box = $('suggestions');
     if (box.hidden) return;
     const r = $('search').getBoundingClientRect();
-    const view = document.querySelector('.stage').getBoundingClientRect();
-    if (r.bottom < view.top || r.top > view.bottom) return closeSuggestions();
+    const stage = document.querySelector('.stage').getBoundingClientRect();
+    if (r.bottom < stage.top || r.top > stage.bottom) return closeSuggestions();
     Object.assign(box.style, { left: `${r.left}px`, top: `${r.bottom + 6}px`, width: `${r.width}px` });
     // Hauteur limitée à la place restante sous le champ (petit écran, clavier du téléphone).
     const list = box.querySelector('.suggestions__list');
@@ -944,21 +861,21 @@
   $('mode').addEventListener('click', (e) => {
     const b = e.target.closest('.tabs__item');
     if (!b) return;
-    if (b.dataset.view) { if (view !== b.dataset.view) setView(b.dataset.view); return; }
-    if (b.dataset.mode === mode) { if (view !== 'game') setView('game'); return; }
-    mode = b.dataset.mode;
-    view = 'game';
-    store.set('mode', mode);
+    if (b.dataset.view) { if (S.view !== b.dataset.view) setView(b.dataset.view); return; }
+    if (b.dataset.mode === S.mode) { if (S.view !== 'game') setView('game'); return; }
+    S.mode = b.dataset.mode;
+    S.view = 'game';
+    store.set('mode', S.mode);
     loadGame();
     render();
   });
 
-  $('give-up').addEventListener('click', () => { if (!game.done) { finish(false); render(); } });
+  $('give-up').addEventListener('click', () => { if (!S.game.done) { finish(false); render(); } });
 
   // Le perso du jour change à minuit : on recharge si l'appli reste ouverte.
   setInterval(() => {
-    if (mode === 'daily' && dailyStatus === 'ready' && game.day !== L.utcDayKey()) { loadGame(); render(); }
-    else if (mode === 'daily') renderScenario();
+    if (S.mode === 'daily' && S.dailyStatus === 'ready' && S.game.day !== L.utcDayKey()) { loadGame(); render(); }
+    else if (S.mode === 'daily') renderScenario();
   }, 60000);
 
   // Mises à jour (appli de bureau) : message système quand une version est téléchargée / prête.
@@ -987,8 +904,8 @@
   renderStatic();
   loadGame();
   // Retour de connexion (site) : on affiche le compte.
-  if (online && (online.takeJustLoggedIn() || accountMsg)) view = 'account';
-  if (view === 'ranking') loadBoard();
+  if (online && (online.takeJustLoggedIn() || S.accountMsg)) S.view = 'account';
+  if (S.view === 'ranking') loadBoard();
   render();
   document.fonts.ready.then(renderMode);
   input.focus();
@@ -997,9 +914,9 @@
   const demo = window.manhwadle.demo;
   if (demo) {
     if (demo.guesses.length) {
-      mode = 'endless';
+      S.mode = 'endless';
       newEndlessGame();
-      demo.guesses.filter((id) => byId.has(id) && id !== game.target.id).forEach(submitGuess);
+      demo.guesses.filter((id) => byId.has(id) && id !== S.game.target.id).forEach(submitGuess);
     }
     // Démo : garde la liste ouverte malgré les changements de focus du compositeur.
     if (demo.type) { input.value = demo.type; setInterval(() => { if ($('suggestions').hidden) openSuggestions(); }, 400); }
