@@ -21,8 +21,34 @@
     { key: 'hair', label: 'Cheveux', kind: 'set' },
   ];
 
-  const HINT_AT = 6;        // essais avant l'indice (portrait flouté)
-  const HINT_CLEAR_AT = 10; // essais avant un flou plus léger
+  // Difficulté d'un personnage (champ `rank` de la fiche), selon sa notoriété dans son œuvre.
+  // Plus il est obscur, plus la récompense est haute et baisse lentement, et plus l'indice arrive tôt.
+  // hints : nombre d'essais avant le portrait flouté, puis avant un flou plus léger.
+  const RANKS = {
+    C: { reward: 600, step: 60, floor: 60, hints: [8, 12] },   // premier rôle
+    B: { reward: 1000, step: 100, floor: 100, hints: [6, 10] }, // rôle important
+    A: { reward: 1500, step: 100, floor: 150, hints: [4, 8] },  // second rôle
+    S: { reward: 2500, step: 125, floor: 250, hints: [3, 6] },  // figurant
+  };
+  const DEFAULT_RANK = 'B';
+
+  /** Rang d'une fiche ; le rang par défaut si elle n'en a pas (ancien serveur, personnage inconnu). */
+  const rankOf = (c) => (RANKS[c?.rank] ? c.rank : DEFAULT_RANK);
+
+  /** Récompense d'une partie gagnée en n essais. */
+  function rewardFor(n, rank) {
+    const r = RANKS[rank] ?? RANKS[DEFAULT_RANK];
+    return Math.max(r.floor, r.reward - r.step * Math.max(0, n - 1));
+  }
+
+  /** Essais avant chaque niveau d'indice : [très flou, plus net]. */
+  const hintsAt = (rank) => (RANKS[rank] ?? RANKS[DEFAULT_RANK]).hints;
+
+  /** Niveau d'indice atteint après n essais : 0 (aucun), 1 (très flou), 2 (plus net). */
+  function hintLevel(n, rank) {
+    const [first, clear] = hintsAt(rank);
+    return n >= clear ? 2 : n >= first ? 1 : 0;
+  }
 
   const isUnknown = (v) =>
     v === null || v === undefined || v === UNKNOWN || (Array.isArray(v) && (v.length === 0 || v.includes(UNKNOWN)));
@@ -73,6 +99,15 @@
   }
 
   /** Personnage du jour : même résultat pour tout le monde à date et liste égales. */
+  /** Personnages du perso du jour : ceux du webtoon. Les personnages propres aux romans (novel: true) restent au mode infini. */
+  const dailyCharacters = (characters) => characters.filter((c) => !c.novel);
+
+  /**
+   * Personnage qui peut être tiré comme réponse : une fiche trop lacunaire griserait des colonnes entières.
+   * Il reste proposable comme essai.
+   */
+  const isTargetable = (c) => ['species', 'affiliations', 'powers', 'hair'].filter((k) => isUnknown(c[k])).length < 3;
+
   /** Jour du perso du jour : le même partout, il change à minuit UTC. */
   const utcDayKey = (now = new Date()) => now.toISOString().slice(0, 10);
 
@@ -175,8 +210,8 @@
     return `${chars.slice(0, 3).join('')}-${chars.slice(3).join('')}`;
   }
 
-  const api = { COLUMNS, CHAPTER_CLOSE, compare, compareValue, dayKey, utcDayKey, hash, normalize, parseQuery, search,
-    LAUNCH_DAY, dayNumber, liveStreak, shareText, loginCode, HINT_AT, HINT_CLEAR_AT };
+  const api = { COLUMNS, CHAPTER_CLOSE, dailyCharacters, isTargetable, compare, compareValue, dayKey, utcDayKey, hash, normalize, parseQuery, search,
+    LAUNCH_DAY, dayNumber, liveStreak, shareText, loginCode, RANKS, DEFAULT_RANK, rankOf, rewardFor, hintsAt, hintLevel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.Logic = api;
 })(typeof window !== 'undefined' ? window : globalThis);

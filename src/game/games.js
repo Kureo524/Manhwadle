@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const A = window.App;
-  const { L, t, byId, $, store, online, S, poolFor, reward } = A;
+  const { L, t, byId, $, store, online, S, inEndless, poolFor, reward } = A;
 
   // ---------- Parties ----------
   function loadGame() {
@@ -14,14 +14,16 @@
     } else {
       const saved = store.get('endless.current', null);
       const target = saved && byId.get(saved.target);
-      if (target && S.enabled.has(target.manhwa)) {
+      if (target && inEndless(target)) {
         S.game = { target, guesses: saved.guesses.filter((id) => byId.has(id)), done: saved.done, won: saved.won };
       } else newEndlessGame();
     }
   }
 
   function newEndlessGame() {
-    const pool = poolFor('endless');
+    const all = poolFor('endless');
+    const complete = all.filter(L.isTargetable);
+    const pool = complete.length ? complete : all;
     const previous = S.game?.target?.id;
     let target = pool[Math.floor(Math.random() * pool.length)];
     if (pool.length > 1) while (target.id === previous) target = pool[Math.floor(Math.random() * pool.length)];
@@ -69,6 +71,7 @@
       done: s.done,
       won: s.won,
       target: s.target ? byId.get(s.target) ?? { name: '???', manhwa: null } : null,
+      difficulty: s.difficulty,
       hint: s.hint,
     };
     applyProfile(s.profile);
@@ -102,7 +105,7 @@
       applyDaily(await online.dailyGuess(id, S.dailyGame.day));
       S.dailyMsg = '';
       if (S.dailyGame.done && S.dailyGame.won) {
-        S.stats.daily.coins = (S.stats.daily.coins ?? 0) + reward(S.dailyGame.guesses.length);
+        S.stats.daily.coins = (S.stats.daily.coins ?? 0) + reward(S.dailyGame.guesses.length, S.dailyGame);
         store.set('stats', S.stats);
       }
       S.dailyBusy = false;

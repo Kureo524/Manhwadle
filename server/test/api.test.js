@@ -66,6 +66,22 @@ test('un lien ?poll= affiche une page de confirmation avec le code, sans partir 
   assert.ok(!html.includes('discord.com/oauth2'));
 });
 
+test('session invalide ou expirée : 401', { skip }, async () => {
+  assert.equal((await worker.fetch('/me', { headers: { Authorization: 'Bearer inconnu' } })).status, 401);
+  const token = randomBytes(32).toString('base64url');
+  await sql(`INSERT INTO users (id, name) VALUES ('expire', 'Expire'); INSERT INTO sessions VALUES ('${createHash('sha256').update(token).digest('hex')}', 'expire', '2020-01-01T00:00:00.000Z')`);
+  assert.equal((await worker.fetch('/me', { headers: { Authorization: `Bearer ${token}` } })).status, 401);
+});
+
+test('state OAuth expiré ou déjà utilisé : refusé avant tout appel à Discord', { skip }, async () => {
+  await sql(`INSERT INTO oauth_states (state, expires_at) VALUES ('perime', '2020-01-01T00:00:00.000Z')`);
+  const headers = { Cookie: '__Host-manhwadle_state=perime' };
+  const old = await worker.fetch('/auth/discord/callback?code=x&state=perime', { redirect: 'manual', headers });
+  assert.ok(old.headers.get('Location').endsWith('#login=expire'));
+  const again = await worker.fetch('/auth/discord/callback?code=x&state=perime', { redirect: 'manual', headers });
+  assert.ok(again.headers.get('Location').endsWith('#login=expire'));
+});
+
 test('une empreinte mal formée est refusée', { skip }, async () => {
   assert.equal((await worker.fetch('/auth/discord?poll=xyz', { redirect: 'manual' })).status, 400);
   assert.equal((await confirm('xyz')).status, 400);
@@ -145,7 +161,9 @@ test('la purge quotidienne retire ce qui est expiré, et seulement cela', { skip
 
 // ---------- Perso du jour ----------
 const today = () => new Date().toISOString().slice(0, 10);
-const allIds = JSON.parse(readFileSync(join(server, '../data/characters.json'), 'utf8')).map((c) => c.id);
+const allCharacters = JSON.parse(readFileSync(join(server, '../data/characters.json'), 'utf8'));
+const allIds = allCharacters.filter((c) => !c.novel).map((c) => c.id);
+const novelId = allCharacters.find((c) => c.novel).id;
 let nextPlayer = 0;
 async function newPlayer(extra = '') {
   const id = `joueur${++nextPlayer}`;
@@ -204,6 +222,7 @@ test('perso du jour : essais refusés', { skip }, async () => {
   await daily(p);
   const [x] = await wrong(1);
   assert.equal((await guess(p, 'inconnu')).status, 400);
+  assert.equal((await guess(p, novelId)).status, 400); // personnage propre aux romans : mode infini seulement
   assert.equal((await guess(p, x, '2020-01-01')).status, 409);
   assert.equal((await guess(p, x)).status, 200);
   assert.equal((await guess(p, x)).status, 409);
@@ -257,11 +276,20 @@ test('indices : verrouillés au début, puis servis sans révéler le personnage
   const p = await newPlayer();
   await daily(p);
   assert.equal((await worker.fetch('/games/daily/hint', { headers: p.headers })).status, 403);
+  const t = await targetId();
+  // Le premier indice arrive plus ou moins tôt selon la difficulté du personnage, annoncée par le serveur.
+  const rank = Logic.rankOf(allCharacters.find((c) => c.id === t));
+  const [first] = Logic.hintsAt(rank);
+  const ids = await wrong(first);
   let state;
-  for (const id of await wrong(6)) state = await (await guess(p, id)).json();
+  for (const id of ids.slice(0, -1)) state = await (await guess(p, id)).json();
+  assert.equal(state.difficulty, rank);
+  assert.equal(state.target, null);
+  assert.equal(state.hint, 0);
+  assert.equal((await worker.fetch('/games/daily/hint', { headers: p.headers })).status, 403);
+  state = await (await guess(p, ids.at(-1))).json();
   assert.equal(state.hint, 1);
   const hint = await worker.fetch('/games/daily/hint', { headers: p.headers });
-  const t = await targetId();
   const hasPortrait = existsSync(join(server, `hints/${t}-1.webp`));
   assert.equal(hint.status, hasPortrait ? 200 : 404);
   if (hasPortrait) assert.equal(hint.headers.get('Content-Type'), 'image/webp');

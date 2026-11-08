@@ -7,7 +7,6 @@
   const t = I.t;
 
   const SITE_URL = 'https://kureo524.github.io/Manhwadle/';
-  const { HINT_AT, HINT_CLEAR_AT } = L;
   const byId = new Map(characters.map((c) => [c.id, c]));
   const manhwaById = new Map(manhwas.map((m) => [m.id, m]));
   const $ = (id) => document.getElementById(id);
@@ -28,6 +27,11 @@
   const storedMode = store.get('mode', 'daily');
   let storedFilters = new Set(store.get('filters', manhwas.map((m) => m.id)).filter((id) => manhwaById.has(id)));
   if (!storedFilters.size) storedFilters = new Set(manhwas.map((m) => m.id));
+  // Une œuvre ajoutée après le dernier passage du joueur entre en jeu d'elle-même ; une œuvre qu'il a retirée reste retirée.
+  const knownFilters = new Set(store.get('filtersKnown', ['orv', 'twatf', 'tbate', 'rein', 'sesm']));
+  for (const m of manhwas) if (!knownFilters.has(m.id)) storedFilters.add(m.id);
+  store.set('filtersKnown', manhwas.map((m) => m.id));
+  store.set('filters', [...storedFilters]);
 
   // Compte en ligne (facultatif, jamais en mode démo) : le perso du jour se joue sur le serveur.
   const online = window.manhwadle.demo ? null : window.Online;
@@ -38,6 +42,7 @@
     // Sans compte, l'appli s'ouvre sur le mode infini, sans toucher au mode enregistré.
     mode: online?.signedIn ? storedMode : 'endless',
     enabled: storedFilters,
+    novels: store.get('novels', false), // mode infini : inclure les personnages propres aux romans
     // Infini : { target, guesses: [ids], done, won }, tout est calculé ici.
     // Perso du jour : { day, guesses: [ids], results: Map(id → états), done, won, target, hint }, tout vient du serveur :
     // le jeu ne connaît pas la réponse avant la fin de la partie.
@@ -58,7 +63,8 @@
     confirmDelete: false,
   };
 
-  const poolFor = (m) => (m === 'daily' ? characters : characters.filter((c) => S.enabled.has(c.manhwa)));
+  const inEndless = (c) => S.enabled.has(c.manhwa) && (S.novels || !c.novel);
+  const poolFor = (m) => (m === 'daily' ? L.dailyCharacters(characters) : characters.filter(inEndless));
   const dailyStreak = () => L.liveStreak(S.stats.daily, L.utcDayKey());
 
   // ---------- Éléments d'interface ----------
@@ -89,12 +95,14 @@
     return dl;
   }
 
-  // Récompense d'un scénario, selon le nombre d'essais.
-  const REWARD_MAX = 1000;
-  const reward = (n) => Math.max(100, REWARD_MAX - 100 * Math.max(0, n - 1));
+  // Difficulté d'une partie : celle du personnage. Perso du jour : annoncée par le serveur, qui garde la cible secrète.
+  const gameRank = (game = S.game) => L.rankOf({ rank: game?.difficulty ?? game?.target?.rank });
+
+  // Récompense d'une partie, selon le nombre d'essais et la difficulté du personnage.
+  const reward = (n, game = S.game) => L.rewardFor(n, gameRank(game));
 
   window.App = {
-    manhwas, characters, L, I, t, SITE_URL, HINT_AT, HINT_CLEAR_AT, byId, manhwaById, $, store, online, S,
-    poolFor, dailyStreak, el, initials, button, rows, reward,
+    manhwas, characters, L, I, t, SITE_URL, byId, manhwaById, $, store, online, S,
+    inEndless, poolFor, dailyStreak, el, initials, button, rows, gameRank, reward,
   };
 })();
