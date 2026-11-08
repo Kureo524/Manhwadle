@@ -10,7 +10,7 @@
 
 ![Une partie en cours](Docs/captures/partie.webp)
 
-> **In English:** Manhwadle is a daily character-guessing game (Wordle-like) set in five Korean web novels and webtoons.
+> **In English:** Manhwadle is a daily character-guessing game (Wordle-like) set in twelve Korean web novels and webtoons.
 > Each guess is compared to the mystery character across 9 categories. It runs as a sandboxed Electron desktop app
 > (Windows, macOS, Linux) and an installable PWA, backed by a serverless API on Cloudflare Workers and D1: the server picks
 > the daily character and decides each game. The art direction is original, inspired by the "system window" look of
@@ -20,7 +20,7 @@
 
 | | |
 |---|---|
-| **Le jeu** | Un « -dle » : retrouver un personnage parmi 107, comparé sur 9 catégories à chaque essai |
+| **Le jeu** | Un « -dle » : retrouver un personnage parmi 659 (1063 avec ceux des romans), comparé sur 9 catégories à chaque essai |
 | **Plateformes** | Windows, macOS, Linux (Electron), navigateur et téléphone (PWA hors ligne) |
 | **Pile technique** | JavaScript sans framework ni bundler, Electron 45, Cloudflare Workers, D1 (SQLite), GitHub Actions |
 | **Serveur** | Connexion Discord, parties décidées côté serveur, classement, limites de débit, purge planifiée |
@@ -64,15 +64,22 @@ Le détail des choix est dans [Ce que j'ai construit](#ce-que-jai-construit).
 Le but : retrouver un personnage de manhwa. À chaque essai, ton personnage est comparé au personnage mystère sur
 9 catégories, et les constellations du Star Stream commentent ta progression.
 
-**Histoires disponibles** — 107 incarnations :
+**Histoires disponibles** — 1063 incarnations :
 
-| Tag | Manhwa | Persos |
-|---|---|---|
-| `@ORV` | Omniscient Reader's Viewpoint | 22 |
-| `@TWATF` | The World After The Fall | 18 |
-| `@TBATE` | The Beginning After The End | 29 |
-| `@Reinc` | Reincarnator | 10 |
-| `@SESM` | Star-Embracing Swordmaster | 28 |
+| Tag | Manhwa | Webtoon | Romans seuls |
+|---|---|---|---|
+| `@ORV` | Omniscient Reader's Viewpoint | 141 | 67 |
+| `@TWATF` | The World After The Fall | 36 | 20 |
+| `@TBATE` | The Beginning After The End | 179 | 200 |
+| `@Reinc` | Reincarnator | 10 | 21 |
+| `@SESM` | Star-Embracing Swordmaster | 45 | 3 |
+| `@SL` | Solo Leveling | 109 | 4 |
+| `@SSS` | SSS-Class Suicide Hunter | 19 | 2 |
+| `@RGL` | A Ranker's Guide to the Good Life | 2 | 8 |
+| `@Blink` | Blink Master of the Magic Academy | 54 | 57 |
+| `@AGS` | Academy's Genius Swordsman | 35 | 16 |
+| `@Sashimi` | The Academy's Sashimi Sword Master | 28 | 2 |
+| `@13HT` | The Player with 13 Hidden Traits | 1 | 4 |
 
 **Sur téléphone :** ouvre [le site](https://kureo524.github.io/Manhwadle/) puis « Ajouter à l'écran d'accueil » (Android : menu ⋮ → *Installer l'application* ; iPhone : Partager → *Sur l'écran d'accueil*). Le jeu s'installe comme une appli ; le mode Infini se joue hors ligne.
 
@@ -81,13 +88,24 @@ Le but : retrouver un personnage de manhwa. À chaque essai, ton personnage est 
 Deux modes, présentés comme des scénarios du Star Stream :
 
 - **Scénario principal — Le personnage du jour** : la même incarnation pour tout le monde, tirée parmi
-  les 107. Le temps limite est minuit UTC.
-- **Scénario secondaire — Incarnation inconnue** : mode infini. Tu choisis les histoires en jeu ;
-  plus il y en a, plus la difficulté monte (de D à S).
+  les 659 du webtoon. Le temps limite est minuit UTC.
+- **Scénario secondaire — Incarnation inconnue** : mode infini. Tu choisis les histoires en jeu.
+  L'option « + Romans » ajoute les personnages qui n'existent que dans les romans : ils n'ont pas de chapitre de webtoon,
+  et attention aux spoilers. Le perso du jour ne les utilise jamais.
 
 La fenêtre de scénario affiche la catégorie, la difficulté, la condition de réussite, le temps
-limite, la récompense et l'échec. L'indice (une silhouette floutée) se débloque à 6 essais et
-devient presque net à 10.
+limite, la récompense et l'échec.
+
+**Difficulté** : chaque personnage a un rang, selon sa notoriété dans son œuvre (champ `rank` de sa fiche). Un
+figurant est plus dur à trouver : il rapporte plus, et l'indice (une silhouette floutée) arrive plus tôt. Le rang
+est annoncé dès le début de la partie, dans les deux modes.
+
+| Rang | Personnage | Récompense au 1er essai | Baisse par essai | Minimum | Indice flou / plus net |
+|---|---|---|---|---|---|
+| C | Premier rôle | 600 | 60 | 60 | 8 / 12 essais |
+| B | Rôle important | 1 000 | 100 | 100 | 6 / 10 essais |
+| A | Second rôle | 1 500 | 100 | 150 | 4 / 8 essais |
+| S | Figurant | 2 500 | 125 | 250 | 3 / 6 essais |
 
 **Série** : chaque perso du jour trouvé prolonge ta série de jours consécutifs ; un jour sauté ou un
 échec la rompt. La fenêtre de scénario affiche la série en cours et ton record.
@@ -107,8 +125,8 @@ comme sur tout jeu de ce type.
 
 **Données personnelles** : [page de confidentialité](https://kureo524.github.io/Manhwadle/privacy.html). L'onglet « Compte » permet de sortir du classement, de télécharger ses données, de déconnecter tous ses appareils et de supprimer son compte.
 
-**Récompense** : 1 000 pièces au premier essai, puis 100 de moins par essai supplémentaire
-(100 au minimum). Les pièces s'additionnent dans tes statistiques.
+**Récompense** : elle dépend du rang et du nombre d'essais (voir le tableau). Les pièces s'additionnent dans tes
+statistiques.
 
 ### Lecture des cases
 
@@ -163,7 +181,7 @@ Le jeu l'interprète librement, dans l'ambiance d'ORV :
 | Domaine | Réalisation |
 |---|---|
 | **Gameplay** | Boucle de jeu « -dle » complète : deux modes, comparaison sur 9 catégories (exact / partiel / proximité de chapitre), indice progressif, statistiques, économie de pièces |
-| **Logique testée** | Module pur sans DOM (`src/logic.js`), partagé entre le client et le serveur : comparaison, recherche avec tags `@` ; tests `node:test` qui valident aussi les 107 fiches et l'absence de portraits en double |
+| **Logique testée** | Module pur sans DOM (`src/logic.js`), partagé entre le client et le serveur : comparaison, recherche avec tags `@` ; tests `node:test` qui valident aussi toutes les fiches et l'absence de portraits en double |
 | **Données** | Pipeline depuis les API MediaWiki des wikis Fandom, galerie + import des portraits (ImageMagick → WebP 320×320), crédits par image |
 | **UI / DA** | Direction artistique originale « Verre d'encre », réinterprétée façon fenêtres système d'ORV : fenêtre transparente sous Hyprland, ciel de constellations animé en canvas, reflet du curseur, réactions des constellations |
 | **Application** | Electron 45 en bac à sable (données via IPC, navigation bloquée, permissions refusées, fuses), mises à jour automatiques, une seule interface partagée avec la version web, découpée par responsabilité dans `src/game/` |
@@ -230,13 +248,18 @@ ou éditeurs des œuvres citées.
 
 - **Œuvres, personnages et illustrations** : © leurs auteurs, illustrateurs et éditeurs respectifs
   (Omniscient Reader's Viewpoint, The World After The Fall, The Beginning After The End,
-  Reincarnator, Star-Embracing Swordmaster).
-- **Portraits** : issus des wikis Fandom des œuvres ; la source de chaque image est listée dans
+  Reincarnator, Star-Embracing Swordmaster, Solo Leveling, SSS-Class Suicide Hunter, A Ranker's Guide to the Good Life,
+  Blink Master of the Magic Academy, Academy's Genius Swordsman, The Academy's Sashimi Sword Master,
+  The Player with 13 Hidden Traits).
+- **Portraits** : issus des wikis Fandom des œuvres et d'[AniList](https://anilist.co) ; la source de chaque image est listée dans
   [`data/credits.json`](data/credits.json).
 - **Fiches des personnages** : établies d'après les wikis communautaires
   ([ORV](https://omniscient-readers-viewpoint.fandom.com), [TWATF](https://the-world-after-the-fall.fandom.com),
   [TBATE](https://tbate.fandom.com), [Reincarnator](https://reincarnator.fandom.com),
-  [SESM](https://starembracing-swordmaster.fandom.com)), dont les textes sont sous licence
+  [SESM](https://starembracing-swordmaster.fandom.com), [Solo Leveling](https://solo-leveling.fandom.com),
+  [SSS-Class](https://sss-class-suicide-hunter.fandom.com), [Ranker's Guide](https://a-rankers-guide-to-the-good-life.fandom.com),
+  [Blink Master](https://blink-master-of-the-magic-academy.fandom.com), [AGS](https://academys-genius-swordmaster.fandom.com),
+  [Sashimi](https://the-academys-sashimi-sword-master.fandom.com)), dont les textes sont sous licence
   [CC BY-SA](https://www.fandom.com/licensing).
 - **Polices** : Gothic A1, Barlow Condensed et IBM Plex Mono, sous licence SIL Open Font License 1.1
   (textes des licences dans [`assets/fonts`](assets/fonts)).

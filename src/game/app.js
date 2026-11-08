@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const A = window.App;
-  const { manhwas, characters, L, I, t, byId, $, store, online, S, poolFor, dailyStreak, el, button } = A;
+  const { manhwas, characters, L, I, t, byId, $, store, online, S, inEndless, poolFor, dailyStreak, el, button } = A;
 
   Object.assign(A, { setView, renderMode, render });
 
@@ -52,18 +52,34 @@
     box.hidden = S.mode !== 'endless';
     box.replaceChildren();
     for (const m of manhwas) {
-      const count = characters.filter((c) => c.manhwa === m.id).length;
+      const count = characters.filter((c) => c.manhwa === m.id && (S.novels || !c.novel)).length;
       const chip = el('button', `filter ${S.enabled.has(m.id) ? 'is-on' : ''}`, `${m.short.replace(/\.$/, '')} · ${count}`);
       chip.title = `${m.title} — ${S.enabled.has(m.id) ? t('filter.remove') : t('filter.add')}`;
       chip.addEventListener('click', () => {
         if (S.enabled.has(m.id)) { if (S.enabled.size === 1) return; S.enabled.delete(m.id); } else S.enabled.add(m.id);
         store.set('filters', [...S.enabled]);
         // Changer les manhwa en jeu relance une partie si la cible n'est plus dans la sélection.
-        if (!S.enabled.has(S.game.target.manhwa) || !S.game.guesses.length || S.game.done) A.newEndlessGame();
+        if (!inEndless(S.game.target) || !S.game.guesses.length || S.game.done) A.newEndlessGame();
         render();
       });
       box.append(chip);
     }
+    box.append(novelsChip());
+  }
+
+  // Option du mode infini : ajoute les personnages qui n'existent que dans les romans.
+  function novelsChip() {
+    const count = characters.filter((c) => c.novel && S.enabled.has(c.manhwa)).length;
+    const chip = el('button', `filter filter--option ${S.novels ? 'is-on' : ''}`, `${t('filter.novels')} · ${count}`);
+    chip.title = t('filter.novelsHint');
+    chip.setAttribute('aria-pressed', String(S.novels));
+    chip.addEventListener('click', () => {
+      S.novels = !S.novels;
+      store.set('novels', S.novels);
+      if (!inEndless(S.game.target) || !S.game.guesses.length || S.game.done) A.newEndlessGame();
+      render();
+    });
+    return chip;
   }
 
   function renderMode() {

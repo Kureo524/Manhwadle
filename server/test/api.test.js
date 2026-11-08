@@ -161,7 +161,9 @@ test('la purge quotidienne retire ce qui est expiré, et seulement cela', { skip
 
 // ---------- Perso du jour ----------
 const today = () => new Date().toISOString().slice(0, 10);
-const allIds = JSON.parse(readFileSync(join(server, '../data/characters.json'), 'utf8')).map((c) => c.id);
+const allCharacters = JSON.parse(readFileSync(join(server, '../data/characters.json'), 'utf8'));
+const allIds = allCharacters.filter((c) => !c.novel).map((c) => c.id);
+const novelId = allCharacters.find((c) => c.novel).id;
 let nextPlayer = 0;
 async function newPlayer(extra = '') {
   const id = `joueur${++nextPlayer}`;
@@ -220,6 +222,7 @@ test('perso du jour : essais refusés', { skip }, async () => {
   await daily(p);
   const [x] = await wrong(1);
   assert.equal((await guess(p, 'inconnu')).status, 400);
+  assert.equal((await guess(p, novelId)).status, 400); // personnage propre aux romans : mode infini seulement
   assert.equal((await guess(p, x, '2020-01-01')).status, 409);
   assert.equal((await guess(p, x)).status, 200);
   assert.equal((await guess(p, x)).status, 409);
@@ -273,11 +276,20 @@ test('indices : verrouillés au début, puis servis sans révéler le personnage
   const p = await newPlayer();
   await daily(p);
   assert.equal((await worker.fetch('/games/daily/hint', { headers: p.headers })).status, 403);
+  const t = await targetId();
+  // Le premier indice arrive plus ou moins tôt selon la difficulté du personnage, annoncée par le serveur.
+  const rank = Logic.rankOf(allCharacters.find((c) => c.id === t));
+  const [first] = Logic.hintsAt(rank);
+  const ids = await wrong(first);
   let state;
-  for (const id of await wrong(6)) state = await (await guess(p, id)).json();
+  for (const id of ids.slice(0, -1)) state = await (await guess(p, id)).json();
+  assert.equal(state.difficulty, rank);
+  assert.equal(state.target, null);
+  assert.equal(state.hint, 0);
+  assert.equal((await worker.fetch('/games/daily/hint', { headers: p.headers })).status, 403);
+  state = await (await guess(p, ids.at(-1))).json();
   assert.equal(state.hint, 1);
   const hint = await worker.fetch('/games/daily/hint', { headers: p.headers });
-  const t = await targetId();
   const hasPortrait = existsSync(join(server, `hints/${t}-1.webp`));
   assert.equal(hint.status, hasPortrait ? 200 : 404);
   if (hasPortrait) assert.equal(hint.headers.get('Content-Type'), 'image/webp');

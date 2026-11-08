@@ -9,6 +9,9 @@ const dayToTime = (day) => Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5,
 export const addDays = (day, n) => new Date(dayToTime(day) + n * DAY_MS).toISOString().slice(0, 10);
 export const utcDay = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
 
+/** Personnages du perso du jour : ceux du webtoon, les personnages propres aux romans restent au mode infini. */
+export const dailyCharacters = Logic.dailyCharacters;
+
 /** Choisit le personnage du jour à partir d'une empreinte secrète (octets), indépendamment de l'ordre du fichier. */
 export function pickDailyId(characters, digest) {
   const ids = characters.map((c) => c.id).sort();
@@ -18,9 +21,6 @@ export function pickDailyId(characters, digest) {
 /** Comparaison d'un essai, réduite à ce que le joueur doit savoir : rien sur le personnage mystère au-delà des états. */
 export const guessResults = (guess, target) =>
   Logic.compare(guess, target).map(({ key, state, dir }) => ({ key, state, ...(dir ? { dir } : {}) }));
-
-/** Niveau d'indice atteint après n essais : 0 (aucun), 1 (très flou), 2 (plus net). */
-export const hintLevel = (n) => (n >= Logic.HINT_CLEAR_AT ? 2 : n >= Logic.HINT_AT ? 1 : 0);
 
 /** Nouvelles statistiques d'un joueur après une partie du jour (déjà validée). */
 export function nextStats(user, game) {

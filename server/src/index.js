@@ -20,9 +20,9 @@
 //   GET    /leaderboard             → classement des séries
 //
 // Authentification : en-tête « Authorization: Bearer <jeton> » (pas de cookie, donc pas de CSRF).
-import characters from '../../data/characters.json';
+import allCharacters from '../../data/characters.json';
 import Logic from '../../src/logic.js';
-import { nextStats, liveStreak, pickDailyId, guessResults, hintLevel, MAX_GUESSES, utcDay, addDays } from './game.js';
+import { dailyCharacters, nextStats, liveStreak, pickDailyId, guessResults, MAX_GUESSES, utcDay, addDays } from './game.js';
 
 const SESSION_DAYS = 90;
 const STATE_MINUTES = 10;
@@ -33,6 +33,7 @@ const DAILY_KEEP_DAYS = 7; // durée de conservation du détail des essais
 const INACTIVE_DAYS = 730; // compte supprimé après 2 ans sans connexion
 const AVATAR_SECONDS = 3600;
 const PUBLIC_ID = /^[0-9a-f]{32}$/;
+const characters = dailyCharacters(allCharacters);
 const byId = new Map(characters.map((c) => [c.id, c]));
 
 // Limites de débit par route et par adresse IP (binding déclaré dans wrangler.toml).
@@ -315,7 +316,7 @@ async function dailyTargetId(env, day) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.DAILY_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`manhwadle:${day}`));
   await env.DB.prepare('INSERT OR IGNORE INTO daily_targets (day, character_id) VALUES (?, ?)')
-    .bind(day, pickDailyId(characters, digest)).run();
+    .bind(day, pickDailyId(characters.filter(Logic.isTargetable), digest)).run();
   return (await env.DB.prepare('SELECT character_id FROM daily_targets WHERE day = ?').bind(day).first()).character_id;
 }
 
@@ -325,11 +326,13 @@ async function dailyGuessIds(env, user, day) {
   return results.map((r) => r.character_id);
 }
 
-// État de la partie du jour. L'identité du personnage n'en fait partie qu'une fois la partie terminée.
+// État de la partie du jour. L'identité du personnage n'en fait partie qu'une fois la partie terminée ;
+// sa difficulté, elle, est annoncée dès le début : elle fixe la récompense et les indices.
 async function dailyState(env, user, now = Date.now()) {
   const day = utcDay(now);
   const targetId = await dailyTargetId(env, day);
   const target = byId.get(targetId);
+  const difficulty = Logic.rankOf(target);
   const ids = await dailyGuessIds(env, user, day);
   const row = await env.DB.prepare('SELECT won FROM daily_games WHERE user_id = ? AND day = ?').bind(user.id, day).first();
   // last_day après aujourd'hui : partie déjà comptée par une ancienne version de l'appli, sur son jour local.
@@ -340,7 +343,8 @@ async function dailyState(env, user, now = Date.now()) {
     done,
     won: !!row?.won,
     target: done ? targetId : null,
-    hint: done ? 0 : hintLevel(ids.length),
+    difficulty,
+    hint: done ? 0 : Logic.hintLevel(ids.length, difficulty),
     profile: publicProfile(user),
   };
 }
@@ -396,9 +400,10 @@ async function dailyGiveUp(request, env, user) {
 // L'image passe par le Worker, à une adresse fixe : son nom ne dit rien du personnage.
 async function dailyHint(request, env, user) {
   const day = utcDay();
-  const level = hintLevel((await dailyGuessIds(env, user, day)).length);
+  const targetId = await dailyTargetId(env, day);
+  const level = Logic.hintLevel((await dailyGuessIds(env, user, day)).length, Logic.rankOf(byId.get(targetId)));
   if (!level) return fail('Indice pas encore disponible.', 403);
-  const asset = await env.ASSETS.fetch(new URL(`/${await dailyTargetId(env, day)}-${level}.webp`, request.url));
+  const asset = await env.ASSETS.fetch(new URL(`/${targetId}-${level}.webp`, request.url));
   if (!asset.ok) return fail("Pas d'indice pour ce scénario.", 404);
   return new Response(asset.body, { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...CORS } });
 }

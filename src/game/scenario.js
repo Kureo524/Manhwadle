@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const A = window.App;
-  const { L, I, t, SITE_URL, HINT_AT, HINT_CLEAR_AT, manhwaById, $, store, online, S, poolFor, dailyStreak, el, rows, reward } = A;
+  const { L, I, t, SITE_URL, manhwaById, $, store, online, S, poolFor, dailyStreak, el, rows, gameRank, reward } = A;
 
   // Copie dans le presse-papiers (API moderne, sinon sélection + copie).
   async function copyText(text) {
@@ -14,8 +14,6 @@
     ta.remove();
     return ok;
   }
-
-  const DIFFICULTY = ['F', 'D', 'C', 'B', 'A', 'S'];
 
   // Constellations inventées pour le jeu (modificateurs à la façon d'ORV) : voir i18n.js.
   const pickOf = (list, seed) => list[L.hash(seed) % list.length];
@@ -175,11 +173,10 @@
   function renderRunning(main, side) {
     const n = S.game.guesses.length;
     const pool = poolFor(S.mode);
-    const level = S.mode === 'daily' ? 'A' : DIFFICULTY[Math.min(S.enabled.size, DIFFICULTY.length - 1)];
     main.append(el('h2', 'scenario__title', S.mode === 'daily' ? t('sc.titleDaily') : t('sc.titleEndless')));
     main.append(rows([
       [t('sc.category'), S.mode === 'daily' ? t('sc.main') : t('sc.side')],
-      [t('sc.difficulty'), level],
+      [t('sc.difficulty'), t(`rank.${gameRank()}`)],
       [t('sc.goal'), t('sc.goalText', { n: pool.length })],
       [t('sc.timeLimit'), S.mode === 'daily' ? t('sc.untilMidnight', { time: untilMidnight() }) : t('sc.none')],
       [t('sc.reward'), t('sc.coins'), I.integer(reward(n + 1))],
@@ -190,8 +187,9 @@
   }
 
   function renderHint(side, n) {
-    if (n < HINT_AT) {
-      const left = HINT_AT - n;
+    const [first, clear] = L.hintsAt(gameRank());
+    if (n < first) {
+      const left = first - n;
       side.append(el('div', 'hint__locked', left), el('div', 'scenario__note system', t('hint.locked', { n: left })));
       return;
     }
@@ -199,11 +197,11 @@
     else {
       const p = A.portrait(S.game.target, 'lg');
       p.classList.add('hint__img');
-      p.style.setProperty('--blur', n >= HINT_CLEAR_AT ? '6px' : '14px');
+      p.style.setProperty('--blur', n >= clear ? '6px' : '14px');
       side.append(p);
     }
     const noImage = S.mode === 'daily' && S.dailyHint?.url === null;
-    side.append(el('div', 'scenario__note system', noImage ? t('hint.none') : n >= HINT_CLEAR_AT ? t('hint.clear') : t('hint.blurry', { at: HINT_CLEAR_AT })));
+    side.append(el('div', 'scenario__note system', noImage ? t('hint.none') : n >= clear ? t('hint.clear') : t('hint.blurry', { at: clear })));
   }
 
   function untilMidnight() {
