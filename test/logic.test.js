@@ -73,11 +73,37 @@ test('recherche @manhwa : tag exact, début de tag, choix ambigu', () => {
   assert.equal(L.parseQuery('@tb', manhwas).manhwa.id, 'tbate');
   assert.equal(L.parseQuery('@reincarnator', manhwas).manhwa.id, 'rein');
   assert.equal(L.parseQuery('@', manhwas).choices.length, manhwas.length);
-  assert.deepEqual(L.parseQuery('@t', manhwas).choices.map((m) => m.id).sort(), ['tbate', 'twatf']);
+  assert.deepEqual(L.parseQuery('@t', manhwas).choices.map((m) => m.id).sort(), ['sashimi', 'tbate', 'traits', 'twatf']);
   assert.equal(L.parseQuery('kim dokja', manhwas).text, 'kim dokja');
   const orv = L.search(chars, '', new Set(), Infinity, 'orv');
   assert.equal(orv.length, chars.filter((c) => c.manhwa === 'orv').length);
   assert.ok(L.search(chars, 'kim', new Set(), Infinity, 'orv').every((c) => c.manhwa === 'orv'));
+});
+
+test('nouvelles œuvres : retrouvées sous leurs autres titres', () => {
+  for (const [tag, id] of [['@solo', 'solo'], ['@suicide', 'sss'], ['@revival', 'sss'], ['@ranker', 'rgl'], ['@blinker', 'blink'], ['@genius', 'ags'], ['@sashimi', 'sashimi'], ['@13', 'traits']]) {
+    assert.equal(L.parseQuery(tag, manhwas).manhwa?.id, id, tag);
+  }
+});
+
+test('personnages des romans : hors perso du jour, sans chapitre de webtoon', () => {
+  const novels = chars.filter((c) => c.novel);
+  assert.ok(novels.length > 0);
+  for (const c of novels) assert.equal(c.chapter, null, c.id);
+  const daily = L.dailyCharacters(chars);
+  assert.equal(daily.length, chars.length - novels.length);
+  assert.ok(daily.every((c) => !c.novel));
+  // Chaque œuvre garde au moins un personnage hors romans : son filtre n'est jamais vide.
+  for (const m of manhwas) assert.ok(daily.some((c) => c.manhwa === m.id), m.id);
+});
+
+test('réponse possible : pas de fiche trop lacunaire', () => {
+  const base = { species: ['Humain'], affiliations: ['?'], powers: ['?'], hair: ['Noir'] };
+  assert.equal(L.isTargetable(base), true);
+  assert.equal(L.isTargetable({ ...base, hair: ['?'] }), false);
+  // Chaque œuvre sauf 13HT (une seule fiche, encore lacunaire) a des réponses possibles.
+  const daily = L.dailyCharacters(chars).filter(L.isTargetable);
+  for (const m of manhwas) if (m.id !== 'traits') assert.ok(daily.some((c) => c.manhwa === m.id), m.id);
 });
 
 test('série vivante : comptée aujourd\'hui et demain, rompue après', () => {
@@ -147,4 +173,45 @@ test('loginCode : code court, stable et sans caractère ambigu', () => {
   assert.match(code, /^[2-9A-HJ-NP-Z]{3}-[2-9A-HJ-NP-Z]{3}$/);
   assert.equal(L.loginCode(hash), code);
   assert.notEqual(L.loginCode('00'.repeat(32)), L.loginCode('01'.repeat(32)));
+});
+
+test('difficulté : chaque fiche a un rang connu', () => {
+  for (const c of chars) assert.ok(L.RANKS[c.rank], `${c.id} : rang ${c.rank}`);
+  assert.equal(L.rankOf({}), L.DEFAULT_RANK);
+  assert.equal(L.rankOf(undefined), L.DEFAULT_RANK);
+  assert.equal(L.rankOf({ rank: 'Z' }), L.DEFAULT_RANK);
+});
+
+test('difficulté : plus le personnage est obscur, plus il rapporte, à tout nombre d\'essais', () => {
+  const order = ['C', 'B', 'A', 'S'];
+  for (let n = 1; n <= 60; n++) {
+    const pay = order.map((r) => L.rewardFor(n, r));
+    assert.deepEqual(pay, [...pay].sort((a, b) => a - b), `essai ${n}`);
+    assert.equal(new Set(pay).size, order.length, `essai ${n}`);
+  }
+  for (const r of order) {
+    assert.equal(L.rewardFor(1, r), L.RANKS[r].reward);
+    assert.equal(L.rewardFor(60, r), L.RANKS[r].floor);
+    assert.ok(L.rewardFor(0, r) === L.RANKS[r].reward);
+  }
+});
+
+test('difficulté : le rang B garde les règles historiques, et le rang par défaut est B', () => {
+  assert.equal(L.DEFAULT_RANK, 'B');
+  for (let n = 1; n <= 30; n++) assert.equal(L.rewardFor(n, 'B'), Math.max(100, 1000 - 100 * (n - 1)));
+  assert.deepEqual(L.hintsAt('B'), [6, 10]);
+  assert.equal(L.rewardFor(1, 'inconnu'), 1000);
+});
+
+test('difficulté : l\'indice arrive plus tôt pour un personnage obscur', () => {
+  const firsts = ['C', 'B', 'A', 'S'].map((r) => L.hintsAt(r)[0]);
+  assert.deepEqual(firsts, [...firsts].sort((a, b) => b - a));
+  for (const r of Object.keys(L.RANKS)) {
+    const [first, clear] = L.hintsAt(r);
+    assert.ok(first < clear);
+    assert.equal(L.hintLevel(first - 1, r), 0);
+    assert.equal(L.hintLevel(first, r), 1);
+    assert.equal(L.hintLevel(clear - 1, r), 1);
+    assert.equal(L.hintLevel(clear, r), 2);
+  }
 });

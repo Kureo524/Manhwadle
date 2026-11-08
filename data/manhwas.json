@@ -1,7 +1,14 @@
 [
-  { "id": "orv",    "title": "Omniscient Reader's Viewpoint", "short": "ORV", "tags": ["orv","omniscient"],    "wiki": "https://omniscient-readers-viewpoint.fandom.com/api.php" },
-  { "id": "twatf",  "title": "The World After The Fall",      "short": "TWATF", "tags": ["twatf","waf"],  "wiki": "https://the-world-after-the-fall.fandom.com/api.php" },
-  { "id": "tbate",  "title": "The Beginning After The End",   "short": "TBATE", "tags": ["tbate","beginning"],  "wiki": "https://tbate.fandom.com/api.php" },
-  { "id": "rein",   "title": "Reincarnator",                  "short": "Reinc.", "tags": ["rein","reinc","reincarnator"], "wiki": "https://reincarnator.fandom.com/api.php" },
-  { "id": "sesm",   "title": "Star-Embracing Swordmaster",    "short": "SESM", "tags": ["sesm","ses","stellar","swordmaster"],   "wiki": "https://starembracing-swordmaster.fandom.com/api.php" }
+  {"id": "orv", "title": "Omniscient Reader's Viewpoint", "short": "ORV", "tags": ["orv", "omniscient"], "wiki": "https://omniscient-readers-viewpoint.fandom.com/api.php"},
+  {"id": "twatf", "title": "The World After The Fall", "short": "TWATF", "tags": ["twatf", "waf"], "wiki": "https://the-world-after-the-fall.fandom.com/api.php"},
+  {"id": "tbate", "title": "The Beginning After The End", "short": "TBATE", "tags": ["tbate", "beginning"], "wiki": "https://tbate.fandom.com/api.php"},
+  {"id": "rein", "title": "Reincarnator", "short": "Reinc.", "tags": ["rein", "reinc", "reincarnator"], "wiki": "https://reincarnator.fandom.com/api.php"},
+  {"id": "sesm", "title": "Star-Embracing Swordmaster", "short": "SESM", "tags": ["sesm", "ses", "stellar", "swordmaster"], "wiki": "https://starembracing-swordmaster.fandom.com/api.php"},
+  {"id": "solo", "title": "Solo Leveling", "short": "SL", "tags": ["sl", "solo", "leveling"], "wiki": "https://solo-leveling.fandom.com/api.php"},
+  {"id": "sss", "title": "SSS-Class Suicide Hunter", "short": "SSS", "tags": ["sss", "suicide", "revival"], "wiki": "https://sss-class-suicide-hunter.fandom.com/api.php"},
+  {"id": "rgl", "title": "A Ranker's Guide to the Good Life", "short": "RGL", "tags": ["rgl", "ranker", "rankers", "good"], "wiki": "https://a-rankers-guide-to-the-good-life.fandom.com/api.php"},
+  {"id": "blink", "title": "Blink Master of the Magic Academy", "short": "Blink", "tags": ["blink", "blinker", "magic"], "wiki": "https://blink-master-of-the-magic-academy.fandom.com/api.php"},
+  {"id": "ags", "title": "Academy's Genius Swordsman", "short": "AGS", "tags": ["ags", "genius", "academy"], "wiki": "https://academys-genius-swordmaster.fandom.com/api.php"},
+  {"id": "sashimi", "title": "The Academy's Sashimi Sword Master", "short": "Sashimi", "tags": ["sashimi", "tasm"], "wiki": "https://the-academys-sashimi-sword-master.fandom.com/api.php"},
+  {"id": "traits", "title": "The Player with 13 Hidden Traits", "short": "13HT", "tags": ["13ht", "13", "hidden", "traits"], "wiki": null}
 ]

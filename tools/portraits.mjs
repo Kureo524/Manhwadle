@@ -4,7 +4,7 @@
 //   node tools/portraits.mjs galerie   # crée assets/inbox/galerie.html : à ouvrir dans ton navigateur,
 //                                      # puis clic droit > « Enregistrer l'image sous… » avec l'id comme nom,
 //                                      # dans le dossier assets/inbox/
-//   node tools/portraits.mjs import    # recadre chaque assets/inbox/<id>.<ext> en 320x320 WebP
+//   node tools/portraits.mjs import [dossier]   # recadre chaque <id>.<ext> (assets/inbox/ par défaut) en 320x320 WebP
 //                                      # vers assets/characters/<manhwa>/<id>.webp
 //
 // Options : --tous (galerie : inclut aussi les persos qui ont déjà un portrait).
@@ -33,7 +33,7 @@ const byId = new Map(characters.map((c) => [c.id, c]));
 const manhwaOf = Object.fromEntries(manhwas.map((m) => [m.id, m]));
 const exists = (p) => access(p).then(() => true, () => false);
 const portraitPath = (c) => join(root, 'assets/characters', c.manhwa, `${c.id}.webp`);
-const wikiPage = (c) => manhwaOf[c.manhwa].wiki.replace(/api\.php$/, `wiki/${encodeURIComponent(c.page.replace(/ /g, '_'))}`);
+const wikiPage = (c) => manhwaOf[c.manhwa].wiki?.replace(/api\.php$/, `wiki/${encodeURIComponent(c.page.replace(/ /g, '_'))}`);
 
 async function api(wiki, params) {
   const res = await fetch(`${wiki}?${new URLSearchParams({ format: 'json', ...params })}`, { headers: { 'User-Agent': UA } });
@@ -44,6 +44,7 @@ async function api(wiki, params) {
 // URL de l'image : image principale de la page, sinon premier champ image*= de l'infobox.
 async function findImage(c) {
   const wiki = manhwaOf[c.manhwa].wiki;
+  if (!wiki) return null; // œuvre sans wiki
   const d = await api(wiki, {
     action: 'query', titles: c.page, redirects: 1,
     prop: 'pageimages|revisions', piprop: 'original', rvprop: 'content', rvslots: 'main',
@@ -82,7 +83,7 @@ async function galerie() {
     return `<article class="card" data-id="${esc(c.id)}">${img}
   <div class="meta"><b>${esc(c.name)}</b><span>${esc(manhwaOf[c.manhwa].short)}</span></div>
   <button class="id" title="Copier le nom de fichier">${esc(c.id)}</button>
-  <a class="wiki" href="${esc(wikiPage(c))}" target="_blank" rel="noreferrer">page wiki</a>
+  ${wikiPage(c) ? `<a class="wiki" href="${esc(wikiPage(c))}" target="_blank" rel="noreferrer">page wiki</a>` : ''}
 </article>`;
   }).join('\n');
 
@@ -108,11 +109,35 @@ async function galerie() {
 <p>1. Clique sur l'identifiant bleu sous l'image : il est copié.</p>
 <p>2. Clic droit sur l'image &gt; « Enregistrer l'image sous… », colle l'identifiant comme nom (garde l'extension), et enregistre dans <code>${esc(inbox)}</code>.</p>
 <p>3. Quand c'est fait : <code>npm run portraits:import</code>. Les cartes cliquées passent en grisé pour suivre où tu en es.</p>
+<p>Plus rapide : <button id="all">Tout télécharger</button> <span id="progress"></span> enregistre les images sous le bon nom dans tes téléchargements (autorise les téléchargements multiples), puis <code>npm run portraits:import -- &lt;dossier de téléchargements&gt;</code>.</p>
 <p>Image absente ou mauvaise ? Le lien « page wiki » ouvre la page du perso : n'importe quelle image fait l'affaire tant que le nom est l'identifiant.</p>
 <div class="grid">
 ${cards}
 </div>
 <script>
+  // Téléchargement groupé, depuis ce navigateur. Une image que le CDN refuse de lire ici reste à enregistrer à la main.
+  document.getElementById('all').addEventListener('click', async () => {
+    const out = document.getElementById('progress');
+    const cards = [...document.querySelectorAll('.card:not(.done)')].filter((c) => c.querySelector('img'));
+    let ok = 0, failed = 0;
+    for (const card of cards) {
+      const img = card.querySelector('img');
+      try {
+        const res = await fetch(img.src);
+        if (!res.ok) throw new Error(res.status);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = card.dataset.id + '.' + (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/[+].*/, '');
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        card.classList.add('done');
+        ok++;
+      } catch { failed++; }
+      out.textContent = ok + ' enregistrée(s), ' + failed + ' à faire à la main';
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  });
   document.addEventListener('click', async (e) => {
     const b = e.target.closest('.id');
     if (!b) return;
@@ -133,8 +158,9 @@ ${cards}
 }
 
 async function importer() {
-  const files = (await readdir(inbox).catch(() => [])).filter((f) => IMAGE_EXT.has(extname(f).toLowerCase()));
-  if (!files.length) return console.log(`Aucune image dans ${inbox}`);
+  const from = rest[0] ?? inbox;
+  const files = (await readdir(from).catch(() => [])).filter((f) => IMAGE_EXT.has(extname(f).toLowerCase()));
+  if (!files.length) return console.log(`Aucune image dans ${from}`);
   const sources = await readJson('assets/inbox/sources.json', {});
   const credits = await readJson('data/credits.json', {});
   let ok = 0;
@@ -146,9 +172,9 @@ async function importer() {
     if (!c) { unknown.push(f); continue; }
     const out = portraitPath(c);
     await mkdir(dirname(out), { recursive: true });
-    await run('magick', [`${join(inbox, f)}[0]`, '-resize', `${SIZE}x${SIZE}^`, '-gravity', 'north',
+    await run('magick', [`${join(from, f)}[0]`, '-resize', `${SIZE}x${SIZE}^`, '-gravity', 'north',
       '-extent', `${SIZE}x${SIZE}`, '-strip', '-quality', '82', out]);
-    await rm(join(inbox, f));
+    await rm(join(from, f));
     credits[id] = { source: sources[id]?.replace(/\/revision\/latest.*$/, '') ?? wikiPage(c), page: c.page, manhwa: c.manhwa };
     ok++;
     console.log(`ok   ${id}`);
@@ -156,12 +182,12 @@ async function importer() {
   const sorted = Object.fromEntries(Object.entries(credits).sort(([a], [b]) => a.localeCompare(b)));
   await writeFile(join(root, 'data/credits.json'), JSON.stringify(sorted, null, 2) + '\n');
   console.log(`\n${ok} portrait(s) importé(s).`);
-  if (unknown.length) console.log(`Nom de fichier ≠ identifiant, ignoré(s) : ${unknown.join(', ')}`);
+  if (unknown.length && from === inbox) console.log(`Nom de fichier ≠ identifiant, ignoré(s) : ${unknown.join(', ')}`);
 }
 
 if (command === 'galerie') await galerie();
 else if (command === 'import') await importer();
 else {
-  console.log('Usage : node tools/portraits.mjs galerie [--tous] | import');
+  console.log('Usage : node tools/portraits.mjs galerie [--tous] | import [dossier]');
   process.exitCode = 1;
 }

@@ -82,6 +82,7 @@
       'daily.sendFailed': 'Essai non envoyé : le serveur ne répond pas. Réessaie.',
       'search.dailyGated': 'Perso du jour indisponible',
       'sc.none': 'Aucun',
+      'rank.C': 'C · Premier rôle', 'rank.B': 'B · Rôle important', 'rank.A': 'A · Second rôle', 'rank.S': 'S · Figurant',
       'sc.reward': 'Récompense', 'sc.coins': 'pièces', 'sc.noReward': 'aucune',
       'sc.failure': 'Échec', 'sc.giveUp': 'Abandon',
       'sc.guesses': 'Essais',
@@ -104,6 +105,7 @@
       'stats.played': 'Scénarios', 'stats.won': 'Réussis', 'stats.streak': 'Série', 'stats.best': 'Record',
       'stats.avg': 'Essais moyens', 'stats.coins': 'Pièces',
       'filter.remove': 'retirer de la partie', 'filter.add': 'ajouter à la partie',
+      'filter.novels': '+ Romans', 'filter.novelsHint': 'Ajoute les personnages propres aux romans (attention aux spoilers)',
 
       'sugg.filter': 'Filtrer par manhwa',
       'sugg.count': ({ title, n }) => `${title} · ${n} personnage${s(n)}`,
@@ -239,6 +241,7 @@
       'daily.sendFailed': 'Guess not sent: the server is not responding. Try again.',
       'search.dailyGated': 'Daily character unavailable',
       'sc.none': 'None',
+      'rank.C': 'C · Lead role', 'rank.B': 'B · Major role', 'rank.A': 'A · Supporting role', 'rank.S': 'S · Extra',
       'sc.reward': 'Reward', 'sc.coins': 'coins', 'sc.noReward': 'none',
       'sc.failure': 'Failure', 'sc.giveUp': 'Giving up',
       'sc.guesses': 'Guesses',
@@ -261,6 +264,7 @@
       'stats.played': 'Scenarios', 'stats.won': 'Cleared', 'stats.streak': 'Streak', 'stats.best': 'Record',
       'stats.avg': 'Avg. guesses', 'stats.coins': 'Coins',
       'filter.remove': 'remove from the game', 'filter.add': 'add to the game',
+      'filter.novels': '+ Novels', 'filter.novelsHint': 'Adds characters who only appear in the novels (beware of spoilers)',
 
       'sugg.filter': 'Filter by manhwa',
       'sugg.count': ({ title, n }) => `${title} · ${n} character${s(n)}`,
@@ -335,7 +339,9 @@
     Protagoniste: 'Protagonist', Antagoniste: 'Antagonist', Allié: 'Ally', Neutre: 'Neutral',
     Vivant: 'Alive', Mort: 'Dead', Inconnu: 'Unknown',
     // Espèces
-    Ange: 'Angel', Basilic: 'Basilisk', Cauchemar: 'Nightmare', Démon: 'Demon', Elfe: 'Elf',
+    Ange: 'Angel', Basilic: 'Basilisk', Bête: 'Beast', Cauchemar: 'Nightmare', Dieu: 'God', Démon: 'Demon', Elfe: 'Elf', Esprit: 'Spirit',
+    Gobelin: 'Goblin', Hamadryade: 'Hamadryad', Léviathan: 'Leviathan', Monarque: 'Monarch', Monstre: 'Monster', Ombre: 'Shadow',
+    Phénix: 'Phoenix', Souverain: 'Ruler',
     'Homme-bête': 'Beastfolk', Humain: 'Human', 'Mort-vivant': 'Undead', Nain: 'Dwarf',
     'Petit peuple': 'Little Folk', 'Peuple du ciel': 'Sky Folk', 'Sang-Vritra': 'Vritra Blood',
     // Pouvoirs
@@ -344,10 +350,10 @@
     Diffusion: 'Broadcast', Défense: 'Defense', Eau: 'Water', Feu: 'Fire', Forge: 'Smithing', Foudre: 'Lightning',
     Glace: 'Ice', Invocation: 'Summoning', Lance: 'Spear', Lumière: 'Light', Magie: 'Magic', Narration: 'Storytelling',
     Prophétie: 'Prophecy', Soin: 'Healing', Soutien: 'Support', Stratégie: 'Strategy', Terre: 'Earth',
-    Ténèbres: 'Darkness', Vent: 'Wind', Épée: 'Sword',
+    Ténèbres: 'Darkness', Téléportation: 'Teleportation', Vent: 'Wind', Épée: 'Sword',
     // Cheveux
     Blanc: 'White', Bleu: 'Blue', Blond: 'Blond', Brun: 'Brown', Gris: 'Gray', Noir: 'Black', Rose: 'Pink',
-    Roux: 'Red', Vert: 'Green',
+    Roux: 'Red', Vert: 'Green', Violet: 'Purple',
     // Affiliations traduites en français dans les fiches
     '10 Maux': '10 Evils', 'Académie Xyrus': 'Xyrus Academy', 'Archidiocèse du Nord': 'Northern Archdiocese',
     'Chevaliers tueurs de dragons': 'Dragon Slayer Knights', 'Cinq Boss de Soara': 'Five Bosses of Soara',
@@ -358,10 +364,15 @@
     'Conseil de Dicathen': 'Council of Dicathen', 'Forteresse Gorgon': 'Gorgon Fortress',
     'Groupe Cheoldoo': 'Cheoldoo Group', 'Mercenaires de l\'Arbre d\'épines': 'Thorn Tree Mercenaries',
     'Royaume d\'Elenoir': 'Kingdom of Elenoir', 'Sans affiliation': 'No affiliation',
-    'Sept Âmes Défuntes': 'Seven Deceased Souls', 'Survivants de la Tour': 'Tower Survivors',
+    'Sept Âmes Défuntes': 'Seven Deceased Souls', 'Souverains': 'Rulers', 'Survivants de la Tour': 'Tower Survivors',
   };
-  // « Famille X » → « X Family »
-  const valueEn = (v) => VALUES_EN[v] ?? (/^Famille /.test(v) ? `${v.slice(8)} Family` : v);
+  // « Famille X » → « X Family », et de même pour les académies, guildes et clans.
+  const GROUPS = { Famille: 'Family', Académie: 'Academy', Guilde: 'Guild', Clan: 'Clan' };
+  const valueEn = (v) => {
+    if (VALUES_EN[v]) return VALUES_EN[v];
+    const [first, ...rest] = v.split(' ');
+    return GROUPS[first] && rest.length ? `${rest.join(' ')} ${GROUPS[first]}` : v;
+  };
 
   function detect() {
     try {
